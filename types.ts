@@ -13,6 +13,7 @@ export interface Signal {
   timestamp: number;
   commitHash: string;
   outcome: Outcome;
+  category: string;
 }
 
 export enum UserRole {

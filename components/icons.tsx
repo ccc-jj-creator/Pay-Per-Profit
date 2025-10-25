@@ -55,3 +55,21 @@ export const TagIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6
     <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
   </svg>
 );
+
+export const TrophyIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9a9 9 0 119 0zM16.5 18.75a9 9 0 00-9 0m9 0c-1.381 0-2.673-.34-3.75-.938m9.062-8.122a9.025 9.025 0 01-1.228 5.618C18.437 16.19 15.42 17.25 12 17.25c-3.42 0-6.437-1.06-8.312-2.692a9.025 9.025 0 01-1.228-5.618M12 14.25a3 3 0 100-6 3 3 0 000 6z" />
+    </svg>
+);
+
+export const ArrowUpDownIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
+  </svg>
+);
+
+export const MagnifyingGlassIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+    </svg>
+);
