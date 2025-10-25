@@ -1,0 +1,5 @@
+{
+  "name": "Signals Commerce Layer",
+  "description": "A robust platform for creators to sell per-signal access (e.g., trading or sports picks) with a loss-protection promise. Features include outcome-first monetization, transparent records with timestamped hashes, a public ledger, and automated buyer credits on losses.",
+  "requestFramePermissions": []
+}
