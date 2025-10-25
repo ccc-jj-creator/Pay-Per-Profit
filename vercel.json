@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/experiences/:match*", "destination": "/" }
+  ]
+}
