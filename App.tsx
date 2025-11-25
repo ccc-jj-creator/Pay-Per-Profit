@@ -4,23 +4,6 @@ import { Signal, User, Purchase, Outcome, UserRole, BuyerSegment } from './types
 import { ChartBarIcon, PlusCircleIcon, BookOpenIcon, UsersIcon, CheckCircleIcon, XCircleIcon, ClockIcon, LockClosedIcon, TagIcon, TrophyIcon, ArrowUpDownIcon, MagnifyingGlassIcon } from './components/icons';
 import { whopService } from './whop-service';
 
-// --- MOCK DATA (Initial state, will be managed by whop-service) ---
-const initialSignals: Signal[] = [
-  { id: 'sig-1', creatorId: 'user-creator-1', content: 'Long $BTC, entry at $68,500, target $72,000', price: 50, timestamp: Date.now() - 86400000 * 3, commitHash: 'a1b2c3d4', outcome: Outcome.WIN, category: 'Crypto' },
-  { id: 'sig-2', creatorId: 'user-creator-1', content: 'Short $ETH, entry at $3,500, target $3,300', price: 50, timestamp: Date.now() - 86400000 * 2, commitHash: 'e5f6g7h8', outcome: Outcome.LOSS, category: 'Crypto' },
-  { id: 'sig-3', creatorId: 'user-creator-1', content: 'Lakers to win vs. Celtics', price: 25, timestamp: Date.now() - 86400000 * 1, commitHash: 'i9j0k1l2', outcome: Outcome.WIN, category: 'Sports' },
-  { id: 'sig-4', creatorId: 'user-creator-1', content: 'Buy $NVDA calls, strike $950, expiry next Friday', price: 75, timestamp: Date.now() - 3600000, commitHash: 'm3n4o5p6', outcome: Outcome.PENDING, category: 'Stocks' },
-];
-
-const initialPurchases: Purchase[] = [
-    { id: 'pur-1', userId: 'user-buyer-1', signalId: 'sig-1', pricePaid: 50, timestamp: Date.now() - 86400000 * 3 },
-    { id: 'pur-2', userId: 'user-buyer-2', signalId: 'sig-1', pricePaid: 50, timestamp: Date.now() - 86400000 * 3 },
-    { id: 'pur-3', userId: 'user-buyer-1', signalId: 'sig-2', pricePaid: 50, timestamp: Date.now() - 86400000 * 2 },
-    { id: 'pur-4', userId: 'user-buyer-2', signalId: 'sig-3', pricePaid: 25, timestamp: Date.now() - 86400000 * 1 },
-    { id: 'pur-5', userId: 'user-buyer-3', signalId: 'sig-2', pricePaid: 0, timestamp: Date.now() - 86400000 * 2 }, // This user had a credit
-];
-
-
 // --- UTILITY FUNCTIONS ---
 const simpleHash = (str: string): string => {
   let hash = 0;
@@ -217,7 +200,7 @@ const CreatorDashboard: React.FC<{
                 <h2 className="text-xl font-bold mb-4">Buyer Engagement</h2>
                 <p className="text-gray-400 mb-6">One-click push notifications to your Whop community based on buyer lifecycle.</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {(Object.values(BuyerSegment)).map(segment => (
+                    {(Object.values(BuyerSegment) as BuyerSegment[]).map(segment => (
                         <button key={segment} onClick={() => onNotify(segment)} className="bg-indigo-600/80 text-white font-semibold py-3 px-2 rounded-lg text-sm hover:bg-indigo-600 transition-colors">
                             Notify {segment}
                         </button>
@@ -404,18 +387,24 @@ const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ sign
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-700">
-                            {filteredAndSortedSignals.map(signal => {
-                                const creator = getCreator(signal.creatorId);
-                                return (
-                                    <tr key={signal.id} className="hover:bg-gray-700/50">
-                                        <td className="p-4 text-gray-100 font-medium">{signal.content}</td>
-                                        <td className="p-4 text-gray-300">{creator?.name}</td>
-                                        <td className="p-4 text-gray-400 text-sm">{new Date(signal.timestamp).toLocaleString()}</td>
-                                        <td className="p-4 text-gray-400 text-sm font-mono">{signal.commitHash.substring(0, 8)}</td>
-                                        <td className="p-4"><OutcomeBadge outcome={signal.outcome} /></td>
-                                    </tr>
-                                );
-                            })}
+                            {filteredAndSortedSignals.length > 0 ? (
+                                filteredAndSortedSignals.map(signal => {
+                                    const creator = getCreator(signal.creatorId);
+                                    return (
+                                        <tr key={signal.id} className="hover:bg-gray-700/50">
+                                            <td className="p-4 text-gray-100 font-medium">{signal.content}</td>
+                                            <td className="p-4 text-gray-300">{creator?.name || 'Unknown'}</td>
+                                            <td className="p-4 text-gray-400 text-sm">{new Date(signal.timestamp).toLocaleString()}</td>
+                                            <td className="p-4 text-gray-400 text-sm font-mono">{signal.commitHash.substring(0, 8)}</td>
+                                            <td className="p-4"><OutcomeBadge outcome={signal.outcome} /></td>
+                                        </tr>
+                                    );
+                                })
+                            ) : (
+                                <tr>
+                                    <td colSpan={5} className="p-6 text-center text-gray-500">No signals found.</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -523,20 +512,22 @@ const BuyerDashboard: React.FC<{
 
             <div className="space-y-6">
                  <h2 className="text-2xl font-bold">Creator Stats</h2>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                     {creatorStats.map(stat => stat.creator && (
-                         <div key={stat.creator.id} className="bg-gray-800 border border-gray-700 p-4 rounded-xl flex items-center space-x-4">
-                             <img src={stat.creator.avatarUrl} alt={stat.creator.name} className="w-12 h-12 rounded-full" />
-                             <div>
-                                 <p className="font-bold text-white">{stat.creator.name}</p>
-                                 <div className="flex items-center space-x-2 text-sm mt-1">
-                                    <PerformanceBadge winRate={stat.winRate} />
-                                    <span className="text-gray-400" title="Loss Protection Credits Issued">{stat.lossProtectionCount} Credits Issued</span>
-                                 </div>
-                             </div>
-                         </div>
-                     ))}
-                 </div>
+                 {creatorStats.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {creatorStats.map(stat => stat.creator && (
+                            <div key={stat.creator.id} className="bg-gray-800 border border-gray-700 p-4 rounded-xl flex items-center space-x-4">
+                                <img src={stat.creator.avatarUrl} alt={stat.creator.name} className="w-12 h-12 rounded-full" />
+                                <div>
+                                    <p className="font-bold text-white">{stat.creator.name}</p>
+                                    <div className="flex items-center space-x-2 text-sm mt-1">
+                                        <PerformanceBadge winRate={stat.winRate} />
+                                        <span className="text-gray-400" title="Loss Protection Credits Issued">{stat.lossProtectionCount} Credits Issued</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                 ) : <p className="text-gray-500">No active creators yet.</p>}
             </div>
 
             <div>
@@ -570,9 +561,32 @@ const BuyerDashboard: React.FC<{
 type View = 'creator-dashboard' | 'post-signal' | 'public-ledger' | 'buyer-dashboard';
 
 export default function App() {
-    const [signals, setSignals] = useState<Signal[]>(initialSignals);
+    // --- PERSISTENT STATE ---
+    // Using localStorage to maintain state across reloads, simulating a backend database
+    const [signals, setSignals] = useState<Signal[]>(() => {
+        try {
+            const saved = localStorage.getItem('signals');
+            return saved ? JSON.parse(saved) : [];
+        } catch { return []; }
+    });
+    
+    const [purchases, setPurchases] = useState<Purchase[]>(() => {
+        try {
+            const saved = localStorage.getItem('purchases');
+            return saved ? JSON.parse(saved) : [];
+        } catch { return []; }
+    });
+
+    // Save to localStorage whenever state changes
+    useEffect(() => {
+        localStorage.setItem('signals', JSON.stringify(signals));
+    }, [signals]);
+
+    useEffect(() => {
+        localStorage.setItem('purchases', JSON.stringify(purchases));
+    }, [purchases]);
+
     const [users, setUsers] = useState<User[]>([]);
-    const [purchases, setPurchases] = useState<Purchase[]>(initialPurchases);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [activeView, setActiveView] = useState<View>('buyer-dashboard');
     const [toast, setToast] = useState({ show: false, message: '' });
@@ -580,16 +594,21 @@ export default function App() {
     useEffect(() => {
         const initApp = async () => {
             await whopService.initialize();
-            const user = await whopService.getCurrentUser();
-            const allUsers = await whopService.getAllUsers();
-            setCurrentUser(user);
-            setUsers(allUsers);
-            if (user) {
-                setActiveView(user.role === UserRole.CREATOR ? 'creator-dashboard' : 'buyer-dashboard');
-            }
+            refreshUserData();
         };
         initApp();
     }, []);
+
+    const refreshUserData = async () => {
+        const user = await whopService.getCurrentUser();
+        const allUsers = await whopService.getAllUsers();
+        setCurrentUser(user);
+        setUsers(allUsers);
+        if (user) {
+            // Default view based on role, but prioritize current view if set
+            setActiveView(prev => prev || (user.role === UserRole.CREATOR ? 'creator-dashboard' : 'buyer-dashboard'));
+        }
+    }
 
     const showToast = (message: string) => {
         setToast({ show: true, message });
@@ -613,7 +632,6 @@ export default function App() {
     };
 
     const handleSettleSignal = async (signalId: string, outcome: Outcome) => {
-        // FIX: Wrap async logic in a try-catch block to handle potential API errors.
         try {
             setSignals(prev => prev.map(s => s.id === signalId ? { ...s, outcome } : s));
     
@@ -624,8 +642,8 @@ export default function App() {
                     await whopService.addCredit(userId);
                     creditedCount++;
                 }
-                // In a real app, you'd refetch user data to see updated credits. Here we just show a message.
                 showToast(`Signal settled as LOSS. ${creditedCount} buyers have been credited via Whop.`);
+                refreshUserData(); // Refresh to see updated credits
             } else {
                  showToast('Signal settled as WIN.');
             }
@@ -638,13 +656,15 @@ export default function App() {
     const handlePurchaseSignal = async (signal: Signal) => {
         if (!currentUser) return;
 
-        const hasCredits = currentUser.credits > 0;
+        // Refresh user data to get latest credits
+        const freshUser = await whopService.getCurrentUser();
+        
+        const hasCredits = freshUser.credits > 0;
         let purchaseSuccessful = false;
         let pricePaid = 0;
 
         if (hasCredits) {
-            await whopService.useCredit(currentUser.id);
-            setCurrentUser(prev => prev ? { ...prev, credits: prev.credits - 1 } : null);
+            await whopService.useCredit(freshUser.id);
             purchaseSuccessful = true;
             pricePaid = 0;
             showToast(`Unlocked with 1 credit!`);
@@ -663,13 +683,21 @@ export default function App() {
         if (purchaseSuccessful) {
             const newPurchase: Purchase = {
                 id: `pur-${Date.now()}`,
-                userId: currentUser.id,
+                userId: freshUser.id,
                 signalId: signal.id,
                 pricePaid,
                 timestamp: Date.now(),
             };
             setPurchases(prev => [...prev, newPurchase]);
+            refreshUserData();
         }
+    };
+
+    const handleSwitchRole = async () => {
+        const newUser = await whopService.switchUserRole();
+        await refreshUserData();
+        setActiveView(newUser.role === UserRole.CREATOR ? 'creator-dashboard' : 'buyer-dashboard');
+        showToast(`Switched to ${newUser.role} mode`);
     };
 
     const handleNotify = async (segment: BuyerSegment) => {
@@ -719,13 +747,19 @@ export default function App() {
                 </div>
                 <div className="border-t border-gray-700 pt-6">
                     <p className="text-sm text-gray-400 mb-3">Logged in via Whop</p>
-                    <div className={`w-full flex items-center p-2 rounded-lg text-left bg-gray-800`}>
+                    <div className={`w-full flex items-center p-2 rounded-lg text-left bg-gray-800 mb-4`}>
                         <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-10 h-10 rounded-full" />
                         <div className="ml-3">
                             <p className="font-semibold text-white text-sm">{currentUser.name}</p>
                             <p className="text-xs text-gray-400">{currentUser.role}</p>
                         </div>
                     </div>
+                    <button 
+                        onClick={handleSwitchRole}
+                        className="w-full text-xs text-indigo-400 hover:text-indigo-300 underline"
+                    >
+                        Switch Role (Test Mode)
+                    </button>
                 </div>
             </aside>
 

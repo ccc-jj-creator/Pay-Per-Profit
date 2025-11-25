@@ -1,3 +1,4 @@
+
 import { User, UserRole, BuyerSegment } from './types';
 
 // --- Whop Credentials (as provided by the user) ---
@@ -6,14 +7,8 @@ const NEXT_PUBLIC_WHOP_APP_ID = 'app_nrC8u0nhX1OdjK';
 const NEXT_PUBLIC_WHOP_AGENT_USER_ID = 'user_5zfkzDbl0Ahxq';
 const NEXT_PUBLIC_WHOP_COMPANY_ID = 'biz_VNCw60ko8dtwPD';
 
-// --- Whop User Data Store ---
-// This data is managed via the Whop API.
-const whopUsers: User[] = [
-  { id: 'user-creator-1', name: 'SignalKing', avatarUrl: 'https://picsum.photos/seed/creator/100', role: UserRole.CREATOR, credits: 0 },
-  { id: 'user-buyer-1', name: 'CryptoChad', avatarUrl: 'https://picsum.photos/seed/buyer1/100', role: UserRole.BUYER, credits: 1 },
-  { id: 'user-buyer-2', name: 'StonksMom', avatarUrl: 'https://picsum.photos/seed/buyer2/100', role: UserRole.BUYER, credits: 0 },
-  { id: 'user-buyer-3', name: 'DegenerateDeb', avatarUrl: 'https://picsum.photos/seed/buyer3/100', role: UserRole.BUYER, credits: 0 },
-];
+const STORAGE_KEY_USERS = 'whop_mock_users';
+const STORAGE_KEY_CURRENT_USER_ID = 'whop_mock_current_user_id';
 
 /**
  * Introduces a delay for API calls.
@@ -21,10 +16,8 @@ const whopUsers: User[] = [
  */
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-
 class WhopService {
   private initialized = false;
-  private currentUser: User | null = null;
 
   /**
    * Initializes the Whop SDK.
@@ -37,26 +30,101 @@ class WhopService {
     console.log('Whop SDK Initialized.');
   }
 
+  private getUsers(): User[] {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_USERS);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private saveUsers(users: User[]) {
+    localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
+  }
+
   /**
    * Gets the current authenticated user from Whop.
-   * The current user is determined by their active session.
+   * Uses localStorage to simulate a session.
    */
   async getCurrentUser(): Promise<User> {
     if (!this.initialized) await this.initialize();
     await sleep(200);
 
-    // In a live environment, the user is resolved from the active Whop session.
-    const user = whopUsers[1]; 
-    this.currentUser = user;
+    let users = this.getUsers();
+    let currentUserId = localStorage.getItem(STORAGE_KEY_CURRENT_USER_ID);
+    let user = users.find(u => u.id === currentUserId);
+
+    if (!user) {
+      // Create a fresh user for this "install"
+      user = {
+        id: `user-${Date.now()}`,
+        name: 'Creator',
+        avatarUrl: `https://ui-avatars.com/api/?name=Creator&background=random`,
+        role: UserRole.CREATOR,
+        credits: 0
+      };
+      users.push(user);
+      this.saveUsers(users);
+      localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, user.id);
+    }
+
     console.log('Whop: Fetched current user:', user.name);
     return user;
+  }
+
+  /**
+   * Helper for demo purposes to switch roles/users
+   */
+  async switchUserRole(): Promise<User> {
+      let users = this.getUsers();
+      const currentUserId = localStorage.getItem(STORAGE_KEY_CURRENT_USER_ID);
+      const currentUser = users.find(u => u.id === currentUserId);
+      
+      let newUser: User;
+
+      // If we are currently a creator, switch to a buyer (create if needed)
+      if (currentUser?.role === UserRole.CREATOR) {
+          let buyer = users.find(u => u.role === UserRole.BUYER);
+          if (!buyer) {
+              buyer = {
+                  id: `user-buyer-${Date.now()}`,
+                  name: 'Buyer',
+                  avatarUrl: `https://ui-avatars.com/api/?name=Buyer&background=random`,
+                  role: UserRole.BUYER,
+                  credits: 5 // Give some credits to test
+              };
+              users.push(buyer);
+              this.saveUsers(users);
+          }
+          newUser = buyer;
+      } else {
+          // Switch back to creator
+          let creator = users.find(u => u.role === UserRole.CREATOR);
+          if (!creator) {
+             // Should verify logic, but fallback to creating one
+             creator = {
+                id: `user-creator-${Date.now()}`,
+                name: 'Creator',
+                avatarUrl: `https://ui-avatars.com/api/?name=Creator&background=random`,
+                role: UserRole.CREATOR,
+                credits: 0
+             };
+             users.push(creator);
+             this.saveUsers(users);
+          }
+          newUser = creator;
+      }
+
+      localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, newUser.id);
+      return newUser;
   }
 
   /**
    * Fetches all users from the Whop community.
    */
   async getAllUsers(): Promise<User[]> {
-      return whopUsers;
+      return this.getUsers();
   }
 
   /**
@@ -65,9 +133,7 @@ class WhopService {
    */
   async createCheckout(price: number): Promise<{ success: boolean }> {
     console.log(`Whop: Creating checkout for ${price} USD using Company ID: ${NEXT_PUBLIC_WHOP_COMPANY_ID}`);
-    // This redirects the user to a Whop checkout URL.
-    // Await successful payment confirmation.
-    await sleep(1500); 
+    await sleep(1000); 
     console.log('Whop: Checkout successful.');
     return { success: true };
   }
@@ -80,8 +146,6 @@ class WhopService {
   async sendNotification(segment: BuyerSegment, message: string): Promise<void> {
     console.log(`Whop: Sending notification to segment "${segment}"`);
     console.log(`-> Message: "${message}"`);
-    console.log(`-> Authenticated with Agent User ID: ${NEXT_PUBLIC_WHOP_AGENT_USER_ID}`);
-    // This is an API call to Whop's notification service.
     await sleep(500);
     console.log('Whop: Notification sent successfully.');
   }
@@ -91,14 +155,14 @@ class WhopService {
    * @param userId The ID of the user to credit.
    */
   async addCredit(userId: string): Promise<void> {
-    const userIndex = whopUsers.findIndex(u => u.id === userId);
+    const users = this.getUsers();
+    const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex > -1) {
-      whopUsers[userIndex].credits++;
-      console.log(`Whop API: Added 1 credit to ${whopUsers[userIndex].name}. New balance: ${whopUsers[userIndex].credits}.`);
-    } else {
-      console.error(`Whop API: User with ID ${userId} not found.`);
+      users[userIndex].credits++;
+      this.saveUsers(users);
+      console.log(`Whop API: Added 1 credit to ${users[userIndex].name}. New balance: ${users[userIndex].credits}.`);
     }
-    await sleep(100); // API latency
+    await sleep(100); 
   }
 
   /**
@@ -106,14 +170,14 @@ class WhopService {
    * @param userId The ID of the user using the credit.
    */
   async useCredit(userId: string): Promise<void> {
-     const userIndex = whopUsers.findIndex(u => u.id === userId);
-    if (userIndex > -1 && whopUsers[userIndex].credits > 0) {
-      whopUsers[userIndex].credits--;
-      console.log(`Whop API: Used 1 credit for ${whopUsers[userIndex].name}. New balance: ${whopUsers[userIndex].credits}.`);
-    } else {
-      console.error(`Whop API: User with ID ${userId} not found or has no credits.`);
+     const users = this.getUsers();
+     const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex > -1 && users[userIndex].credits > 0) {
+      users[userIndex].credits--;
+      this.saveUsers(users);
+      console.log(`Whop API: Used 1 credit for ${users[userIndex].name}. New balance: ${users[userIndex].credits}.`);
     }
-    await sleep(100); // API latency
+    await sleep(100);
   }
 }
 
