@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Signal, User, Purchase, Outcome, UserRole, BuyerSegment } from './types';
 import { ChartBarIcon, PlusCircleIcon, BookOpenIcon, UsersIcon, CheckCircleIcon, XCircleIcon, ClockIcon, LockClosedIcon, TagIcon, TrophyIcon, ArrowUpDownIcon, MagnifyingGlassIcon, LinkIcon, GlobeIcon } from './components/icons';
@@ -786,12 +785,7 @@ export default function App() {
             }
         } catch (error: unknown) {
             console.error("Failed to settle signal:", error);
-            let errorMessage = 'An error occurred while settling the signal.';
-            if (error instanceof Error) {
-                errorMessage = error.message;
-            } else if (typeof error === 'string') {
-                errorMessage = error;
-            }
+            const errorMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : 'An error occurred while settling the signal.';
             showToast(errorMessage);
         }
     };
