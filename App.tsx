@@ -99,9 +99,13 @@ const SimpleBarChart: React.FC<{ data: { label: string; value: number; color: st
 
 const PlatformBadge: React.FC<{ platform: string }> = ({ platform }) => {
     if (!platform) return null;
+    const p = platform.toLowerCase();
     let colors = 'bg-gray-700 text-gray-300';
-    if (platform.toLowerCase().includes('polymarket')) colors = 'bg-blue-600/30 text-blue-300 border border-blue-500/50';
-    if (platform.toLowerCase().includes('kalshi')) colors = 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50';
+    
+    if (p.includes('polymarket')) colors = 'bg-blue-600/30 text-blue-300 border border-blue-500/50';
+    else if (p.includes('kalshi')) colors = 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50';
+    else if (p.includes('predictit')) colors = 'bg-sky-900/40 text-sky-200 border border-sky-700/50';
+    else if (p.includes('manifold')) colors = 'bg-purple-600/30 text-purple-300 border border-purple-500/50';
     
     return (
         <span className={`px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded flex items-center gap-1 ${colors}`}>
@@ -779,10 +783,10 @@ export default function App() {
             } else {
                  showToast('Signal settled as WIN.');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to settle signal:", error);
-            const errorMessage = error instanceof Error ? error.message : 'An error occurred while settling the signal.';
-            showToast(errorMessage);
+            const errorMessage = error?.message || 'An error occurred while settling the signal.';
+            showToast(String(errorMessage));
         }
     };
 
@@ -831,6 +835,13 @@ export default function App() {
         await refreshUserData();
         setActiveView(newUser.role === UserRole.CREATOR ? 'creator-dashboard' : 'buyer-dashboard');
         showToast(`Switched to ${newUser.role} mode`);
+    };
+
+    const handleResetData = () => {
+        if(window.confirm("This will clear all local data and reset the app to a fresh state. Continue?")) {
+            localStorage.clear();
+            window.location.reload();
+        }
     };
 
     const handleNotify = async (segment: BuyerSegment) => {
@@ -887,12 +898,20 @@ export default function App() {
                             <p className="text-xs text-gray-400">{currentUser.role}</p>
                         </div>
                     </div>
-                    <button 
-                        onClick={handleSwitchRole}
-                        className="w-full text-xs text-indigo-400 hover:text-indigo-300 underline"
-                    >
-                        Switch Role (Test Mode)
-                    </button>
+                    <div className="flex space-x-2">
+                         <button 
+                            onClick={handleSwitchRole}
+                            className="flex-1 text-xs text-indigo-400 hover:text-indigo-300 underline"
+                        >
+                            Switch Role
+                        </button>
+                        <button 
+                            onClick={handleResetData}
+                            className="flex-1 text-xs text-red-400 hover:text-red-300 underline"
+                        >
+                            Reset Data
+                        </button>
+                    </div>
                 </div>
             </aside>
 
