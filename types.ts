@@ -14,6 +14,8 @@ export interface Signal {
   commitHash: string;
   outcome: Outcome;
   category: string;
+  platform?: string;
+  marketUrl?: string;
 }
 
 export enum UserRole {

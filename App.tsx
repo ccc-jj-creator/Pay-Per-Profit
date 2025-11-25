@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Signal, User, Purchase, Outcome, UserRole, BuyerSegment } from './types';
-import { ChartBarIcon, PlusCircleIcon, BookOpenIcon, UsersIcon, CheckCircleIcon, XCircleIcon, ClockIcon, LockClosedIcon, TagIcon, TrophyIcon, ArrowUpDownIcon, MagnifyingGlassIcon } from './components/icons';
+import { ChartBarIcon, PlusCircleIcon, BookOpenIcon, UsersIcon, CheckCircleIcon, XCircleIcon, ClockIcon, LockClosedIcon, TagIcon, TrophyIcon, ArrowUpDownIcon, MagnifyingGlassIcon, LinkIcon, GlobeIcon } from './components/icons';
 import { whopService } from './whop-service';
 
 // --- UTILITY FUNCTIONS ---
@@ -98,6 +97,20 @@ const SimpleBarChart: React.FC<{ data: { label: string; value: number; color: st
     );
 };
 
+const PlatformBadge: React.FC<{ platform: string }> = ({ platform }) => {
+    if (!platform) return null;
+    let colors = 'bg-gray-700 text-gray-300';
+    if (platform.toLowerCase().includes('polymarket')) colors = 'bg-blue-600/30 text-blue-300 border border-blue-500/50';
+    if (platform.toLowerCase().includes('kalshi')) colors = 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50';
+    
+    return (
+        <span className={`px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded flex items-center gap-1 ${colors}`}>
+            <GlobeIcon className="w-3 h-3" />
+            {platform}
+        </span>
+    );
+};
+
 
 const SignalCard: React.FC<{
     signal: Signal;
@@ -108,22 +121,47 @@ const SignalCard: React.FC<{
     currentUser: User;
 }> = ({ signal, creator, isPurchased, isSettled, onPurchase, currentUser }) => {
 
+    const canView = isPurchased || currentUser.role === UserRole.CREATOR;
+
     return (
         <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500 transition-all duration-300">
             <div>
-                {creator && (
-                    <div className="flex items-center mb-4">
-                        <img src={creator.avatarUrl} alt={creator.name} className="w-10 h-10 rounded-full" />
-                        <span className="ml-3 font-semibold text-white">{creator.name}</span>
+                <div className="flex justify-between items-start mb-4">
+                    {creator ? (
+                        <div className="flex items-center">
+                            <img src={creator.avatarUrl} alt={creator.name} className="w-10 h-10 rounded-full" />
+                            <div className="ml-3">
+                                <span className="block font-semibold text-white leading-tight">{creator.name}</span>
+                                <span className="text-xs text-gray-400">{signal.category}</span>
+                            </div>
+                        </div>
+                    ) : <span></span>}
+                     {signal.platform && <PlatformBadge platform={signal.platform} />}
+                </div>
+
+                {canView ? (
+                    <div className="space-y-3">
+                         <p className="text-lg text-gray-100">{signal.content}</p>
+                         {signal.marketUrl && (
+                             <a 
+                                href={signal.marketUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                             >
+                                 <LinkIcon className="w-4 h-4 mr-1.5" />
+                                 View Market on {signal.platform || 'Platform'}
+                             </a>
+                         )}
                     </div>
-                )}
-                {isPurchased || currentUser.role === UserRole.CREATOR ? (
-                    <p className="text-lg text-gray-100">{signal.content}</p>
                 ) : (
                     <div className="text-center py-8 bg-gray-900/50 rounded-lg flex flex-col items-center justify-center">
                         <LockClosedIcon className="w-8 h-8 text-gray-500 mb-2" />
                         <p className="text-gray-400 font-medium">Signal Locked</p>
-                        <p className="text-sm text-indigo-400 mt-1">{signal.category}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                             <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{signal.category}</span>
+                             {signal.platform && <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{signal.platform}</span>}
+                        </div>
                     </div>
                 )}
             </div>
@@ -137,7 +175,7 @@ const SignalCard: React.FC<{
                         onClick={() => onPurchase(signal)}
                         className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200"
                     >
-                        Unlock Signal
+                        Unlock Signal {formatCurrency(signal.price)}
                     </button>
                 )}
             </div>
@@ -216,8 +254,12 @@ const CreatorDashboard: React.FC<{
                         {pendingSignals.map(signal => (
                             <div key={signal.id} className="bg-gray-800 border border-gray-700 rounded-2xl p-4 md:flex items-center justify-between">
                                 <div className="mb-4 md:mb-0">
-                                    <p className="font-semibold text-lg">{signal.content}</p>
+                                    <div className="flex items-center gap-2 mb-1">
+                                         <p className="font-semibold text-lg">{signal.content}</p>
+                                         {signal.platform && <PlatformBadge platform={signal.platform} />}
+                                    </div>
                                     <p className="text-sm text-gray-400">Posted: {new Date(signal.timestamp).toLocaleString()}</p>
+                                    {signal.marketUrl && <p className="text-xs text-indigo-400 truncate max-w-md">{signal.marketUrl}</p>}
                                 </div>
                                 <div className="flex space-x-3">
                                     <button onClick={() => onSettle(signal.id, Outcome.WIN)} className="bg-green-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-600 transition-colors">Win</button>
@@ -233,29 +275,48 @@ const CreatorDashboard: React.FC<{
     );
 };
 
-type BatchSignal = { content: string; price: string; category: string };
+type BatchSignal = { content: string; price: string; category: string; platform?: string; marketUrl?: string };
+
 const PostSignalView: React.FC<{
     creator: User;
-    onPostSignal: (content: string, price: number, category: string) => void;
+    onPostSignal: (content: string, price: number, category: string, platform?: string, marketUrl?: string) => void;
 }> = ({ creator, onPostSignal }) => {
+    const [mode, setMode] = useState<'STANDARD' | 'PREDICTION'>('STANDARD');
+    
+    // Form state
     const [content, setContent] = useState('');
     const [price, setPrice] = useState('50');
     const [category, setCategory] = useState('Crypto');
+    
+    // Prediction Market specific state
+    const [platform, setPlatform] = useState('Polymarket');
+    const [marketUrl, setMarketUrl] = useState('');
+    
     const [batch, setBatch] = useState<BatchSignal[]>([]);
 
     const handleAddToBatch = (e: React.FormEvent) => {
         e.preventDefault();
-        if (content && price && category) {
-            setBatch(prev => [...prev, { content, price, category }]);
+        if (content && price) {
+            const isPred = mode === 'PREDICTION';
+            setBatch(prev => [...prev, { 
+                content, 
+                price, 
+                category: isPred ? 'Prediction' : category,
+                platform: isPred ? platform : undefined,
+                marketUrl: isPred ? marketUrl : undefined
+            }]);
+            
+            // Reset fields
             setContent('');
             setPrice('50');
-            setCategory('Crypto');
+            if (!isPred) setCategory('Crypto');
+            setMarketUrl('');
         }
     };
     
     const handlePostBatch = () => {
         batch.forEach(signal => {
-            onPostSignal(signal.content, parseFloat(signal.price), signal.category);
+            onPostSignal(signal.content, parseFloat(signal.price), signal.category, signal.platform, signal.marketUrl);
         });
         setBatch([]);
     };
@@ -263,21 +324,57 @@ const PostSignalView: React.FC<{
     return (
         <div className="max-w-4xl mx-auto space-y-8">
             <div>
-                <h1 className="text-4xl font-bold text-white mb-8">Post Signals</h1>
+                <h1 className="text-4xl font-bold text-white mb-6">Post Signals</h1>
+                
+                {/* Mode Toggle */}
+                <div className="flex space-x-4 mb-6">
+                    <button 
+                        onClick={() => setMode('STANDARD')}
+                        className={`px-6 py-2 rounded-lg font-bold transition-colors ${mode === 'STANDARD' ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                    >
+                        Standard Signal
+                    </button>
+                    <button 
+                        onClick={() => setMode('PREDICTION')}
+                        className={`px-6 py-2 rounded-lg font-bold transition-colors ${mode === 'PREDICTION' ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                    >
+                        Prediction Market
+                    </button>
+                </div>
+
                 <form onSubmit={handleAddToBatch} className="bg-gray-800 border border-gray-700 rounded-2xl p-8 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <div>
-                            <label htmlFor="category" className="block text-sm font-medium text-gray-300 mb-2">Category</label>
-                            <input
-                                type="text"
-                                id="category"
-                                value={category}
-                                onChange={e => setCategory(e.target.value)}
-                                className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                                placeholder="e.g., Crypto, Stocks, Sports"
-                                required
-                            />
-                        </div>
+                         {mode === 'STANDARD' ? (
+                            <div>
+                                <label htmlFor="category" className="block text-sm font-medium text-gray-300 mb-2">Category</label>
+                                <input
+                                    type="text"
+                                    id="category"
+                                    value={category}
+                                    onChange={e => setCategory(e.target.value)}
+                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                    placeholder="e.g., Crypto, Stocks, Sports"
+                                    required
+                                />
+                            </div>
+                         ) : (
+                            <div>
+                                <label htmlFor="platform" className="block text-sm font-medium text-gray-300 mb-2">Platform</label>
+                                <select
+                                    id="platform"
+                                    value={platform}
+                                    onChange={e => setPlatform(e.target.value)}
+                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-white"
+                                >
+                                    <option value="Polymarket">Polymarket</option>
+                                    <option value="Kalshi">Kalshi</option>
+                                    <option value="PredictIt">PredictIt</option>
+                                    <option value="Manifold">Manifold</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                         )}
+                        
                         <div>
                             <label htmlFor="price" className="block text-sm font-medium text-gray-300 mb-2">Price (USD)</label>
                             <input
@@ -292,15 +389,33 @@ const PostSignalView: React.FC<{
                             />
                         </div>
                     </div>
+
+                    {mode === 'PREDICTION' && (
+                        <div>
+                            <label htmlFor="marketUrl" className="block text-sm font-medium text-gray-300 mb-2">Market URL</label>
+                            <input
+                                type="url"
+                                id="marketUrl"
+                                value={marketUrl}
+                                onChange={e => setMarketUrl(e.target.value)}
+                                className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                placeholder="https://polymarket.com/event/..."
+                                required
+                            />
+                        </div>
+                    )}
+
                     <div>
-                        <label htmlFor="content" className="block text-sm font-medium text-gray-300 mb-2">Signal Content</label>
+                        <label htmlFor="content" className="block text-sm font-medium text-gray-300 mb-2">
+                            {mode === 'PREDICTION' ? 'Your Prediction' : 'Signal Content'}
+                        </label>
                         <textarea
                             id="content"
                             value={content}
                             onChange={e => setContent(e.target.value)}
                             rows={3}
                             className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                            placeholder="e.g., Long $BTC, entry at $68,500..."
+                            placeholder={mode === 'PREDICTION' ? "e.g., Yes on Trump winning PA..." : "e.g., Long $BTC, entry at $68,500..."}
                             required
                         />
                     </div>
@@ -316,7 +431,13 @@ const PostSignalView: React.FC<{
                     <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                         {batch.map((signal, index) => (
                             <div key={index} className="bg-gray-900 p-3 rounded-lg flex justify-between items-center">
-                                <p className="text-gray-300">{signal.content}</p>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        {signal.platform && <span className="text-xs bg-gray-700 px-1.5 rounded">{signal.platform}</span>}
+                                        <p className="text-gray-300">{signal.content}</p>
+                                    </div>
+                                    {signal.marketUrl && <p className="text-xs text-indigo-500 mt-1 truncate max-w-sm">{signal.marketUrl}</p>}
+                                </div>
                                 <span className="text-sm font-semibold">{formatCurrency(parseFloat(signal.price))}</span>
                             </div>
                         ))}
@@ -341,7 +462,8 @@ const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ sign
             .filter(s => 
                 s.content.toLowerCase().includes(search.toLowerCase()) ||
                 getCreator(s.creatorId)?.name.toLowerCase().includes(search.toLowerCase()) ||
-                s.outcome.toLowerCase().includes(search.toLowerCase())
+                s.outcome.toLowerCase().includes(search.toLowerCase()) ||
+                (s.platform && s.platform.toLowerCase().includes(search.toLowerCase()))
             )
             .sort((a, b) => {
                 if (sortKey === 'timestamp') return b.timestamp - a.timestamp;
@@ -380,9 +502,9 @@ const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ sign
                         <thead className="bg-gray-900/50">
                             <tr>
                                 <th className="p-4 font-semibold text-sm text-gray-300">Signal</th>
+                                <th className="p-4 font-semibold text-sm text-gray-300">Platform</th>
                                 <th className="p-4 font-semibold text-sm text-gray-300">Creator</th>
                                 <th className="p-4 font-semibold text-sm text-gray-300">Timestamp</th>
-                                <th className="p-4 font-semibold text-sm text-gray-300">Commit Hash</th>
                                 <th className="p-4 font-semibold text-sm text-gray-300">Outcome</th>
                             </tr>
                         </thead>
@@ -392,10 +514,14 @@ const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ sign
                                     const creator = getCreator(signal.creatorId);
                                     return (
                                         <tr key={signal.id} className="hover:bg-gray-700/50">
-                                            <td className="p-4 text-gray-100 font-medium">{signal.content}</td>
+                                            <td className="p-4 text-gray-100 font-medium">
+                                                {signal.content}
+                                            </td>
+                                            <td className="p-4">
+                                                {signal.platform ? <PlatformBadge platform={signal.platform} /> : <span className="text-xs text-gray-500">-</span>}
+                                            </td>
                                             <td className="p-4 text-gray-300">{creator?.name || 'Unknown'}</td>
                                             <td className="p-4 text-gray-400 text-sm">{new Date(signal.timestamp).toLocaleString()}</td>
-                                            <td className="p-4 text-gray-400 text-sm font-mono">{signal.commitHash.substring(0, 8)}</td>
                                             <td className="p-4"><OutcomeBadge outcome={signal.outcome} /></td>
                                         </tr>
                                     );
@@ -428,7 +554,11 @@ const BuyerDashboard: React.FC<{
     const availableSignals = useMemo(() => {
         return signals
             .filter(s => s.outcome === Outcome.PENDING && !purchasedSignalIds.has(s.id))
-            .filter(s => s.content.toLowerCase().includes(filter.toLowerCase()) || s.category.toLowerCase().includes(filter.toLowerCase()))
+            .filter(s => 
+                s.content.toLowerCase().includes(filter.toLowerCase()) || 
+                s.category.toLowerCase().includes(filter.toLowerCase()) ||
+                (s.platform && s.platform.toLowerCase().includes(filter.toLowerCase()))
+            )
             .sort((a,b) => {
                 switch(sort) {
                     case 'price-asc': return a.price - b.price;
@@ -480,7 +610,7 @@ const BuyerDashboard: React.FC<{
                  <div className="flex space-x-4 mb-6">
                     <div className="relative flex-grow">
                         <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input type="text" placeholder="Filter by content or category..." value={filter} onChange={e => setFilter(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 pl-10 pr-4 focus:ring-indigo-500"/>
+                        <input type="text" placeholder="Filter by content, category, or platform..." value={filter} onChange={e => setFilter(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 pl-10 pr-4 focus:ring-indigo-500"/>
                     </div>
                     <select value={sort} onChange={e => setSort(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 focus:ring-indigo-500">
                         <option value="timestamp-desc">Newest</option>
@@ -614,7 +744,7 @@ export default function App() {
         setToast({ show: true, message });
     };
 
-    const handlePostSignal = (content: string, price: number, category: string) => {
+    const handlePostSignal = (content: string, price: number, category: string, platform?: string, marketUrl?: string) => {
         if (!currentUser) return;
         const newSignal: Signal = {
             id: `sig-${Date.now()}${Math.random()}`,
@@ -625,6 +755,8 @@ export default function App() {
             commitHash: simpleHash(`${content}${Date.now()}`),
             outcome: Outcome.PENDING,
             category,
+            platform,
+            marketUrl
         };
         setSignals(prev => [...prev, newSignal]);
         showToast('Signal successfully posted!');
@@ -649,7 +781,8 @@ export default function App() {
             }
         } catch (error) {
             console.error("Failed to settle signal:", error);
-            showToast('An error occurred while settling the signal.');
+            const errorMessage = error instanceof Error ? error.message : 'An error occurred while settling the signal.';
+            showToast(errorMessage);
         }
     };
 
