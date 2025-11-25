@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Signal, User, Purchase, Outcome, UserRole, BuyerSegment } from './types';
 import { ChartBarIcon, PlusCircleIcon, BookOpenIcon, UsersIcon, CheckCircleIcon, XCircleIcon, ClockIcon, LockClosedIcon, TagIcon, TrophyIcon, ArrowUpDownIcon, MagnifyingGlassIcon, LinkIcon, GlobeIcon } from './components/icons';
@@ -783,10 +784,15 @@ export default function App() {
             } else {
                  showToast('Signal settled as WIN.');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Failed to settle signal:", error);
-            const errorMessage = error?.message || 'An error occurred while settling the signal.';
-            showToast(String(errorMessage));
+            let errorMessage = 'An error occurred while settling the signal.';
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            } else if (typeof error === 'string') {
+                errorMessage = error;
+            }
+            showToast(errorMessage);
         }
     };
 
@@ -837,10 +843,27 @@ export default function App() {
         showToast(`Switched to ${newUser.role} mode`);
     };
 
-    const handleResetData = () => {
+    const handleResetData = async () => {
         if(window.confirm("This will clear all local data and reset the app to a fresh state. Continue?")) {
             localStorage.clear();
-            window.location.reload();
+            
+            // Soft Reset: Clear state in memory without reloading the page
+            setSignals([]);
+            setPurchases([]);
+            setUsers([]);
+            setCurrentUser(null);
+
+            // Re-initialize to ensure fresh install experience
+            await whopService.initialize();
+            // Force recreation of default user by calling getCurrentUser after clearing storage
+            const user = await whopService.getCurrentUser();
+            const allUsers = await whopService.getAllUsers();
+            
+            setCurrentUser(user);
+            setUsers(allUsers);
+            setActiveView(user.role === UserRole.CREATOR ? 'creator-dashboard' : 'buyer-dashboard');
+            
+            showToast("App data reset successfully.");
         }
     };
 
