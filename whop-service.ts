@@ -1,9 +1,6 @@
 
 import { User, UserRole, BuyerSegment } from './types';
 
-// --- CONSTANTS ---
-const MOCK_COMPANY_ID_DEFAULT = 'biz_default_demo';
-
 // --- HELPERS ---
 
 /**
@@ -53,15 +50,13 @@ class StorageHelper {
 const storage = new StorageHelper();
 
 // Helper to get company ID from URL (simulating Whop iframe context)
-const getCompanyIdFromUrl = () => {
+const getParamFromUrl = (keys: string[]) => {
     if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
-        // Check all common Whop parameter names
-        return params.get('companyId') || 
-               params.get('bizId') || 
-               params.get('company_id') || 
-               params.get('experienceId') ||
-               storage.getItem('whop_debug_company_id');
+        for (const key of keys) {
+            const val = params.get(key);
+            if (val) return val;
+        }
     }
     return null;
 };
@@ -77,7 +72,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 class WhopService {
   private initialized = false;
-  private currentCompanyId: string = MOCK_COMPANY_ID_DEFAULT;
+  private currentCompanyId: string = 'unknown_biz';
 
   /**
    * Initializes the Whop SDK.
@@ -85,17 +80,13 @@ class WhopService {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     
-    const urlId = getCompanyIdFromUrl();
-    this.currentCompanyId = urlId || MOCK_COMPANY_ID_DEFAULT;
+    // Whop typically passes the business ID as 'bizId' or 'companyId'
+    const urlId = getParamFromUrl(['bizId', 'companyId', 'experienceId']);
+    this.currentCompanyId = urlId || 'dev_default_biz';
     
-    // Persist context
-    if (urlId) {
-        storage.setItem('whop_debug_company_id', urlId);
-    }
-
     console.log(`[WhopService] Initializing for Company: ${this.currentCompanyId}`);
     
-    // In a real app, this is where we would await window.Whop.init()
+    // Simulate SDK initialization
     await sleep(300); 
     this.initialized = true;
   }
@@ -119,39 +110,75 @@ class WhopService {
 
   /**
    * Gets the current authenticated user from Whop.
+   * STRICTLY USES URL PARAMS TO DETERMINE IDENTITY AND ROLE
    */
   async getCurrentUser(): Promise<User> {
     if (!this.initialized) await this.initialize();
     
+    // 1. Try to get identity from URL (iframe context)
+    const userId = getParamFromUrl(['user_id', 'userId', 'sub']);
+    const name = getParamFromUrl(['name', 'username', 'full_name']);
+    const avatar = getParamFromUrl(['avatar', 'picture', 'image_url']);
+    const roleParam = getParamFromUrl(['role', 'roles']);
+
+    // 2. Determine Role strictly
+    let role = UserRole.BUYER; // Default to Buyer for safety
+    if (roleParam) {
+        const r = roleParam.toLowerCase();
+        if (r.includes('admin') || r.includes('creator') || r.includes('owner')) {
+            role = UserRole.CREATOR;
+        }
+    }
+
+    // 3. Hydrate or Load User
+    // If we have a userId from URL, we prioritize that.
+    // If not, we fallback to a stored session (only for dev/testing outside iframe).
+    
     let users = this.getUsers();
-    
-    // Check if we have a persisted session for this company
-    const sessionKey = getStorageKey('current_user_id', this.currentCompanyId);
-    let currentUserId = storage.getItem(sessionKey);
-    
-    let user = users.find(u => u.id === currentUserId);
+    let user: User | undefined;
 
-    // LIVE SIMULATION LOGIC:
-    // If no user is found in storage, we create a new one.
-    // Rule: The FIRST user created for a Company is the CREATOR (Admin).
-    // All subsequent users are BUYERS (Members).
-    if (!user) {
-      const isFirstUser = users.length === 0;
-      
-      const role = isFirstUser ? UserRole.CREATOR : UserRole.BUYER;
-      const name = isFirstUser ? 'Creator (You)' : `Member ${users.length + 1}`;
+    if (userId) {
+        user = users.find(u => u.id === userId);
+        if (!user) {
+            // New user entering the app
+            user = {
+                id: userId,
+                name: name || `User ${userId.substr(0,4)}`,
+                avatarUrl: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=random`,
+                role: role,
+                credits: role === UserRole.BUYER ? 0 : 0 // Start with 0 credits
+            };
+            users.push(user);
+            this.saveUsers(users);
+        } else {
+            // Update role if changed in URL
+            if (user.role !== role) {
+                user.role = role;
+                this.saveUsers(users);
+            }
+        }
+    } else {
+        // FALLBACK FOR DEV/LOCALHOST ONLY (When no URL params exist)
+        // Check if we have a persisted session
+        const sessionKey = getStorageKey('current_user_id', this.currentCompanyId);
+        let storedId = storage.getItem(sessionKey);
+        user = users.find(u => u.id === storedId);
 
-      user = {
-        id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: name,
-        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
-        role: role,
-        credits: role === UserRole.BUYER ? 5 : 0
-      };
-      
-      users.push(user);
-      this.saveUsers(users);
-      storage.setItem(sessionKey, user.id);
+        if (!user) {
+             // Create a dummy user for dev
+             const isFirstUser = users.length === 0;
+             const devRole = isFirstUser ? UserRole.CREATOR : UserRole.BUYER;
+             user = {
+                 id: `dev-${Date.now()}`,
+                 name: isFirstUser ? 'Dev Admin' : 'Dev Member',
+                 avatarUrl: `https://ui-avatars.com/api/?name=Dev&background=random`,
+                 role: devRole,
+                 credits: 5
+             };
+             users.push(user);
+             this.saveUsers(users);
+             storage.setItem(sessionKey, user.id);
+        }
     }
 
     return user;
@@ -167,16 +194,15 @@ class WhopService {
   async createCheckout(price: number): Promise<{ success: boolean }> {
     console.log(`[WhopService] Creating checkout for ${price} USD`);
     
-    // LIVE COMPATIBILITY:
-    // If inside an iframe, try to message parent to open native checkout
-    if (window.parent !== window) {
+    // Post message to parent to trigger native checkout
+    if (typeof window !== 'undefined' && window.parent) {
         window.parent.postMessage({
             type: 'WHOP_OPEN_CHECKOUT',
             payload: { price }
         }, '*');
     }
 
-    await sleep(1000); 
+    await sleep(800); 
     return { success: true };
   }
 
@@ -186,9 +212,7 @@ class WhopService {
   async sendNotification(segment: BuyerSegment, message: string): Promise<void> {
     console.log(`[WhopService] Sending notification: "${message}" to ${segment}`);
     
-    // LIVE COMPATIBILITY: 
-    // Signal the parent window (Whop) about the notification event
-    if (window.parent !== window) {
+    if (typeof window !== 'undefined' && window.parent) {
         window.parent.postMessage({
             type: 'WHOP_SEND_NOTIFICATION',
             payload: { segment, message }
@@ -217,31 +241,6 @@ class WhopService {
       this.saveUsers(users);
     }
     await sleep(100);
-  }
-
-  /**
-   * DEBUG ONLY: Reset company data
-   */
-  async resetCompanyData(): Promise<void> {
-      storage.removeItem(getStorageKey('users', this.currentCompanyId));
-      storage.removeItem(getStorageKey('current_user_id', this.currentCompanyId));
-  }
-  
-  /**
-   * DEBUG ONLY: Switch local user role to test other views
-   * This persists only for this session/browser
-   */
-  async debugSwitchRole(userId: string, newRole: UserRole): Promise<void> {
-      const users = this.getUsers();
-      const user = users.find(u => u.id === userId);
-      if (user) {
-          user.role = newRole;
-          // If switching to buyer, ensure they have credits to test with
-          if (newRole === UserRole.BUYER && user.credits === 0) {
-              user.credits = 5;
-          }
-          this.saveUsers(users);
-      }
   }
 }
 

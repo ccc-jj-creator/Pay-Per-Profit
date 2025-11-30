@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Signal, User, Purchase, Outcome, UserRole, BuyerSegment } from './types';
 import { ChartBarIcon, PlusCircleIcon, BookOpenIcon, UsersIcon, CheckCircleIcon, XCircleIcon, ClockIcon, LockClosedIcon, TagIcon, TrophyIcon, ArrowUpDownIcon, MagnifyingGlassIcon, LinkIcon, GlobeIcon, ShieldCheckIcon, CurrencyDollarIcon } from './components/icons';
@@ -196,8 +197,7 @@ const CreatorDashboard: React.FC<{
     purchases: Purchase[];
     onSettle: (signalId: string, outcome: Outcome) => void;
     onNotify: (segment: BuyerSegment) => void;
-    onViewAsMember: () => void;
-}> = ({ creator, signals, purchases, onSettle, onNotify, onViewAsMember }) => {
+}> = ({ creator, signals, purchases, onSettle, onNotify }) => {
     const creatorSignals = signals.filter(s => s.creatorId === creator.id);
     const pendingSignals = creatorSignals.filter(s => s.outcome === Outcome.PENDING).sort((a,b) => b.timestamp - a.timestamp);
     const settledSignals = creatorSignals.filter(s => s.outcome !== Outcome.PENDING).sort((a,b) => b.timestamp - a.timestamp);
@@ -221,12 +221,6 @@ const CreatorDashboard: React.FC<{
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                  <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Creator Dashboard</h1>
                  <div className="flex items-center gap-3">
-                     <button 
-                        onClick={onViewAsMember} 
-                        className="bg-gray-800 text-gray-300 hover:text-white px-4 py-2 rounded-lg text-sm border border-gray-700 hover:border-gray-500 transition-colors"
-                     >
-                        View as Member
-                     </button>
                      <PerformanceBadge winRate={analytics.winRateNum} />
                  </div>
             </div>
@@ -805,7 +799,7 @@ export default function App() {
             } else {
                  showToast('Signal settled as WIN.');
             }
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.error("Failed to settle signal:", error);
             let errorMessage = 'An error occurred';
             if (error instanceof Error) {
@@ -858,20 +852,6 @@ export default function App() {
         }
     };
 
-    const handleResetData = async () => {
-        if(window.confirm("DEBUG: Clear data for this company? (Simulates fresh install)")) {
-            setSignals([]);
-            setPurchases([]);
-            setUsers([]);
-            setCurrentUser(null);
-            
-            await whopService.resetCompanyData();
-            
-            // Soft Reset
-            window.location.reload(); 
-        }
-    };
-
     const handleNotify = async (segment: BuyerSegment) => {
         if (!currentUser || currentUser.role !== UserRole.CREATOR) return;
         showToast(`Sending notification to ${segment}...`);
@@ -879,16 +859,6 @@ export default function App() {
         showToast(`Notification sent successfully to ${segment}`);
     };
     
-    // Feature for Creator to test Buyer view without a "Toggle" that violates rules
-    const handleViewAsMember = async () => {
-        if (currentUser) {
-            await whopService.debugSwitchRole(currentUser.id, UserRole.BUYER);
-            await refreshUserData();
-            setActiveView('buyer-dashboard');
-            showToast("Switched to Member View");
-        }
-    };
-
     if (!currentUser || !activeView) {
         return <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white animate-pulse">Loading Pay Per Profit...</div>
     }
@@ -970,13 +940,6 @@ export default function App() {
                             <p className="text-xs text-emerald-400 font-medium">{currentUser.role === UserRole.CREATOR ? 'Admin' : 'Member'}</p>
                         </div>
                     </div>
-                    {/* Debug button only - useful for reviewer to reset state */}
-                    <button 
-                        onClick={handleResetData}
-                        className="block w-full text-center text-xs text-gray-500 hover:text-red-400 mt-2 transition-colors"
-                    >
-                        Reset Demo Data
-                    </button>
                 </div>
             </aside>
 
@@ -985,7 +948,7 @@ export default function App() {
                  {/* Only Render Views if Permissions Match */}
                  
                  {activeView === 'creator-dashboard' && currentUser.role === UserRole.CREATOR && (
-                    <CreatorDashboard creator={currentUser} signals={signals} purchases={purchases} onSettle={handleSettleSignal} onNotify={handleNotify} onViewAsMember={handleViewAsMember}/>
+                    <CreatorDashboard creator={currentUser} signals={signals} purchases={purchases} onSettle={handleSettleSignal} onNotify={handleNotify}/>
                  )}
                  {activeView === 'post-signal' && currentUser.role === UserRole.CREATOR && (
                     <PostSignalView creator={currentUser} onPostSignal={handlePostSignal} />
@@ -1001,7 +964,13 @@ export default function App() {
 
                  {/* Fallback protection */}
                  {activeView === 'creator-dashboard' && currentUser.role !== UserRole.CREATOR && (
-                     <div className="text-center mt-20 text-red-400">Access Denied</div>
+                     <div className="flex items-center justify-center h-full">
+                         <div className="text-center p-8 bg-gray-800 rounded-xl border border-red-900/50">
+                             <LockClosedIcon className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                             <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
+                             <p className="text-gray-400">You do not have permission to view the Creator Dashboard.</p>
+                         </div>
+                     </div>
                  )}
             </main>
             
