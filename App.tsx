@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Signal, User, Purchase, Outcome, UserRole, BuyerSegment } from './types';
-import { ChartBarIcon, PlusCircleIcon, BookOpenIcon, UsersIcon, CheckCircleIcon, XCircleIcon, ClockIcon, LockClosedIcon, TagIcon, TrophyIcon, ArrowUpDownIcon, MagnifyingGlassIcon, LinkIcon, GlobeIcon } from './components/icons';
+import { ChartBarIcon, PlusCircleIcon, BookOpenIcon, UsersIcon, CheckCircleIcon, XCircleIcon, ClockIcon, LockClosedIcon, TagIcon, TrophyIcon, ArrowUpDownIcon, MagnifyingGlassIcon, LinkIcon, GlobeIcon, ShieldCheckIcon, CurrencyDollarIcon } from './components/icons';
 import { whopService } from './whop-service';
 
 // --- UTILITY FUNCTIONS ---
@@ -30,7 +30,7 @@ const Toast: React.FC<{ message: string; show: boolean; onClose: () => void }> =
 
     if (!show) return null;
     return (
-        <div className="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg animate-fade-in-out z-50">
+        <div className="fixed bottom-5 right-5 bg-emerald-600 text-white py-3 px-6 rounded-lg shadow-xl animate-fade-in-out z-[100] border border-emerald-500">
             {message}
         </div>
     );
@@ -40,7 +40,7 @@ const NavItem: React.FC<{ icon: React.ReactNode; label: string; active: boolean;
     <button
         onClick={onClick}
         className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors duration-200 ${
-            active ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+            active ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/50' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
         }`}
     >
         {icon}
@@ -49,9 +49,9 @@ const NavItem: React.FC<{ icon: React.ReactNode; label: string; active: boolean;
 );
 
 const AnalyticsCard: React.FC<{ title: string; value: string; subtext?: string }> = ({ title, value, subtext }) => (
-    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 w-full hover:border-gray-600 transition-colors">
         <h3 className="text-sm font-medium text-gray-400">{title}</h3>
-        <p className="text-3xl font-bold text-white mt-2">{value}</p>
+        <p className="text-3xl font-bold text-white mt-2 truncate">{value}</p>
         {subtext && <p className="text-xs text-gray-500 mt-1">{subtext}</p>}
     </div>
 );
@@ -59,38 +59,38 @@ const AnalyticsCard: React.FC<{ title: string; value: string; subtext?: string }
 const OutcomeBadge: React.FC<{ outcome: Outcome }> = ({ outcome }) => {
     const baseClasses = 'px-3 py-1 text-xs font-bold rounded-full inline-flex items-center';
     switch (outcome) {
-        case Outcome.WIN: return <span className={`${baseClasses} bg-green-500/20 text-green-400`}><CheckCircleIcon className="w-4 h-4 mr-1.5" /> WIN</span>;
-        case Outcome.LOSS: return <span className={`${baseClasses} bg-red-500/20 text-red-400`}><XCircleIcon className="w-4 h-4 mr-1.5" /> LOSS</span>;
-        default: return <span className={`${baseClasses} bg-yellow-500/20 text-yellow-400`}><ClockIcon className="w-4 h-4 mr-1.5" /> PENDING</span>;
+        case Outcome.WIN: return <span className={`${baseClasses} bg-green-500/20 text-green-400 border border-green-500/30`}><CheckCircleIcon className="w-4 h-4 mr-1.5" /> WIN</span>;
+        case Outcome.LOSS: return <span className={`${baseClasses} bg-red-500/20 text-red-400 border border-red-500/30`}><XCircleIcon className="w-4 h-4 mr-1.5" /> LOSS</span>;
+        default: return <span className={`${baseClasses} bg-yellow-500/20 text-yellow-400 border border-yellow-500/30`}><ClockIcon className="w-4 h-4 mr-1.5" /> PENDING</span>;
     }
 };
 
 const PerformanceBadge: React.FC<{ winRate: number }> = ({ winRate }) => {
     const badge = useMemo(() => {
-        if (isNaN(winRate)) return { label: 'Rookie', color: 'bg-gray-500/20 text-gray-400' };
-        if (winRate >= 0.75) return { label: 'Elite', color: 'bg-green-500/20 text-green-400' };
-        if (winRate >= 0.6) return { label: 'Sharpshooter', color: 'bg-sky-500/20 text-sky-400' };
-        if (winRate > 0) return { label: 'Proven', color: 'bg-yellow-500/20 text-yellow-400' };
-        return { label: 'Rookie', color: 'bg-gray-500/20 text-gray-400' };
+        if (isNaN(winRate)) return { label: 'Rookie', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
+        if (winRate >= 0.75) return { label: 'Elite', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' };
+        if (winRate >= 0.6) return { label: 'Sharpshooter', color: 'bg-sky-500/20 text-sky-400 border-sky-500/30' };
+        if (winRate > 0) return { label: 'Proven', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' };
+        return { label: 'Rookie', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
     }, [winRate]);
 
-    return <span className={`px-3 py-1 text-xs font-bold rounded-full inline-flex items-center ${badge.color}`}><TrophyIcon className="w-4 h-4 mr-1.5" /> {badge.label}</span>;
+    return <span className={`px-3 py-1 text-xs font-bold rounded-full inline-flex items-center border ${badge.color}`}><TrophyIcon className="w-4 h-4 mr-1.5" /> {badge.label}</span>;
 };
 
 
 const SimpleBarChart: React.FC<{ data: { label: string; value: number; color: string }[] }> = ({ data }) => {
     const maxValue = Math.max(...data.map(d => d.value), 1);
     return (
-        <div className="bg-gray-900/50 p-6 rounded-xl h-full flex items-end space-x-4">
+        <div className="bg-gray-900/50 p-6 rounded-xl h-full min-h-[200px] flex items-end space-x-4">
             {data.map(item => (
-                <div key={item.label} className="flex-1 flex flex-col items-center justify-end">
+                <div key={item.label} className="flex-1 flex flex-col items-center justify-end h-full">
                     <div className="text-sm font-bold text-white mb-1">{item.value}</div>
                     <div
-                        className="w-full rounded-t-md transition-all duration-500"
+                        className="w-full max-w-[60px] rounded-t-md transition-all duration-500 min-h-[4px]"
                         style={{ height: `${(item.value / maxValue) * 80}%`, backgroundColor: item.color }}
                         title={`${item.label}: ${item.value}`}
                     ></div>
-                    <span className="text-xs font-bold text-gray-400 mt-2">{item.label}</span>
+                    <span className="text-xs font-bold text-gray-400 mt-2 text-center">{item.label}</span>
                 </div>
             ))}
         </div>
@@ -128,12 +128,12 @@ const SignalCard: React.FC<{
     const canView = isPurchased || currentUser.role === UserRole.CREATOR;
 
     return (
-        <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500 transition-all duration-300">
+        <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 flex flex-col justify-between hover:border-emerald-500/50 transition-all duration-300 group">
             <div>
                 <div className="flex justify-between items-start mb-4">
                     {creator ? (
                         <div className="flex items-center">
-                            <img src={creator.avatarUrl} alt={creator.name} className="w-10 h-10 rounded-full" />
+                            <img src={creator.avatarUrl} alt={creator.name} className="w-10 h-10 rounded-full border border-gray-600" />
                             <div className="ml-3">
                                 <span className="block font-semibold text-white leading-tight">{creator.name}</span>
                                 <span className="text-xs text-gray-400">{signal.category}</span>
@@ -145,13 +145,13 @@ const SignalCard: React.FC<{
 
                 {canView ? (
                     <div className="space-y-3">
-                         <p className="text-lg text-gray-100">{signal.content}</p>
+                         <p className="text-lg text-gray-100 font-medium">{signal.content}</p>
                          {signal.marketUrl && (
                              <a 
                                 href={signal.marketUrl} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+                                className="inline-flex items-center text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
                              >
                                  <LinkIcon className="w-4 h-4 mr-1.5" />
                                  View Market on {signal.platform || 'Platform'}
@@ -159,7 +159,7 @@ const SignalCard: React.FC<{
                          )}
                     </div>
                 ) : (
-                    <div className="text-center py-8 bg-gray-900/50 rounded-lg flex flex-col items-center justify-center">
+                    <div className="text-center py-8 bg-gray-900/50 rounded-lg flex flex-col items-center justify-center border border-dashed border-gray-700">
                         <LockClosedIcon className="w-8 h-8 text-gray-500 mb-2" />
                         <p className="text-gray-400 font-medium">Signal Locked</p>
                         <div className="flex items-center gap-2 mt-2">
@@ -177,7 +177,7 @@ const SignalCard: React.FC<{
                 {!isPurchased && currentUser.role === UserRole.BUYER && !isSettled && (
                      <button
                         onClick={() => onPurchase(signal)}
-                        className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200"
+                        className="w-full bg-emerald-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-emerald-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-emerald-900/20"
                     >
                         Unlock Signal {formatCurrency(signal.price)}
                     </button>
@@ -196,7 +196,8 @@ const CreatorDashboard: React.FC<{
     purchases: Purchase[];
     onSettle: (signalId: string, outcome: Outcome) => void;
     onNotify: (segment: BuyerSegment) => void;
-}> = ({ creator, signals, purchases, onSettle, onNotify }) => {
+    onViewAsMember: () => void;
+}> = ({ creator, signals, purchases, onSettle, onNotify, onViewAsMember }) => {
     const creatorSignals = signals.filter(s => s.creatorId === creator.id);
     const pendingSignals = creatorSignals.filter(s => s.outcome === Outcome.PENDING).sort((a,b) => b.timestamp - a.timestamp);
     const settledSignals = creatorSignals.filter(s => s.outcome !== Outcome.PENDING).sort((a,b) => b.timestamp - a.timestamp);
@@ -216,22 +217,30 @@ const CreatorDashboard: React.FC<{
     }, [creatorSignals, purchases, settledSignals]);
     
     return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-start">
-                 <h1 className="text-4xl font-bold text-white">Creator Dashboard</h1>
-                 <PerformanceBadge winRate={analytics.winRateNum} />
+        <div className="space-y-8 pb-10">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                 <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Creator Dashboard</h1>
+                 <div className="flex items-center gap-3">
+                     <button 
+                        onClick={onViewAsMember} 
+                        className="bg-gray-800 text-gray-300 hover:text-white px-4 py-2 rounded-lg text-sm border border-gray-700 hover:border-gray-500 transition-colors"
+                     >
+                        View as Member
+                     </button>
+                     <PerformanceBadge winRate={analytics.winRateNum} />
+                 </div>
             </div>
 
             {/* Analytics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <AnalyticsCard title="Total Revenue" value={formatCurrency(analytics.totalRevenue)} />
                 <AnalyticsCard title="Signals Sold" value={analytics.signalsSold.toString()} />
                 <AnalyticsCard title="Win/Loss Ratio" value={analytics.winRate} subtext={`${analytics.wins}W / ${analytics.losses}L`} />
                 <AnalyticsCard title="Reputation Score" value={analytics.reputation} subtext="Based on performance & volume"/>
-                <div className="lg:col-span-4 bg-gray-800 p-6 rounded-xl border border-gray-700 h-80">
+                <div className="col-span-1 sm:col-span-2 lg:col-span-4 bg-gray-800 p-6 rounded-xl border border-gray-700 min-h-[300px]">
                     <h3 className="text-sm font-medium text-gray-400 mb-4">Performance Breakdown</h3>
                     <SimpleBarChart data={[
-                        { label: 'Wins', value: analytics.wins, color: '#22c55e' },
+                        { label: 'Wins', value: analytics.wins, color: '#10b981' },
                         { label: 'Losses', value: analytics.losses, color: '#ef4444' }
                     ]} />
                 </div>
@@ -240,10 +249,10 @@ const CreatorDashboard: React.FC<{
             {/* Buyer Segmentation & Whop Integration */}
             <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6">
                 <h2 className="text-xl font-bold mb-4">Buyer Engagement</h2>
-                <p className="text-gray-400 mb-6">One-click push notifications to your Whop community based on buyer lifecycle.</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <p className="text-gray-400 mb-6 text-sm md:text-base">One-click push notifications to your Whop community based on buyer lifecycle.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {(Object.values(BuyerSegment) as BuyerSegment[]).map(segment => (
-                        <button key={segment} onClick={() => onNotify(segment)} className="bg-indigo-600/80 text-white font-semibold py-3 px-2 rounded-lg text-sm hover:bg-indigo-600 transition-colors">
+                        <button key={segment} onClick={() => onNotify(segment)} className="bg-emerald-600/10 text-emerald-400 border border-emerald-500/30 font-semibold py-3 px-2 rounded-lg text-sm hover:bg-emerald-600 hover:text-white transition-all">
                             Notify {segment}
                         </button>
                     ))}
@@ -256,18 +265,18 @@ const CreatorDashboard: React.FC<{
                 {pendingSignals.length > 0 ? (
                     <div className="space-y-4">
                         {pendingSignals.map(signal => (
-                            <div key={signal.id} className="bg-gray-800 border border-gray-700 rounded-2xl p-4 md:flex items-center justify-between">
-                                <div className="mb-4 md:mb-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                         <p className="font-semibold text-lg">{signal.content}</p>
+                            <div key={signal.id} className="bg-gray-800 border border-gray-700 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                         <p className="font-semibold text-lg truncate">{signal.content}</p>
                                          {signal.platform && <PlatformBadge platform={signal.platform} />}
                                     </div>
                                     <p className="text-sm text-gray-400">Posted: {new Date(signal.timestamp).toLocaleString()}</p>
-                                    {signal.marketUrl && <p className="text-xs text-indigo-400 truncate max-w-md">{signal.marketUrl}</p>}
+                                    {signal.marketUrl && <p className="text-xs text-emerald-400 truncate max-w-full">{signal.marketUrl}</p>}
                                 </div>
-                                <div className="flex space-x-3">
-                                    <button onClick={() => onSettle(signal.id, Outcome.WIN)} className="bg-green-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-600 transition-colors">Win</button>
-                                    <button onClick={() => onSettle(signal.id, Outcome.LOSS)} className="bg-red-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-600 transition-colors">Loss</button>
+                                <div className="flex space-x-3 w-full md:w-auto">
+                                    <button onClick={() => onSettle(signal.id, Outcome.WIN)} className="flex-1 md:flex-none bg-emerald-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-emerald-500 transition-colors">Win</button>
+                                    <button onClick={() => onSettle(signal.id, Outcome.LOSS)} className="flex-1 md:flex-none bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-500 transition-colors">Loss</button>
                                 </div>
                             </div>
                         ))}
@@ -326,27 +335,27 @@ const PostSignalView: React.FC<{
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8">
+        <div className="max-w-4xl mx-auto space-y-8 pb-10">
             <div>
-                <h1 className="text-4xl font-bold text-white mb-6">Post Signals</h1>
+                <h1 className="text-3xl md:text-4xl font-bold text-white mb-6 tracking-tight">Post Signals</h1>
                 
                 {/* Mode Toggle */}
-                <div className="flex space-x-4 mb-6">
+                <div className="flex space-x-2 md:space-x-4 mb-6 overflow-x-auto pb-2">
                     <button 
                         onClick={() => setMode('STANDARD')}
-                        className={`px-6 py-2 rounded-lg font-bold transition-colors ${mode === 'STANDARD' ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                        className={`px-6 py-2 rounded-lg font-bold transition-colors whitespace-nowrap ${mode === 'STANDARD' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
                     >
                         Standard Signal
                     </button>
                     <button 
                         onClick={() => setMode('PREDICTION')}
-                        className={`px-6 py-2 rounded-lg font-bold transition-colors ${mode === 'PREDICTION' ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                        className={`px-6 py-2 rounded-lg font-bold transition-colors whitespace-nowrap ${mode === 'PREDICTION' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
                     >
                         Prediction Market
                     </button>
                 </div>
 
-                <form onSubmit={handleAddToBatch} className="bg-gray-800 border border-gray-700 rounded-2xl p-8 space-y-6">
+                <form onSubmit={handleAddToBatch} className="bg-gray-800 border border-gray-700 rounded-2xl p-6 md:p-8 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          {mode === 'STANDARD' ? (
                             <div>
@@ -356,7 +365,7 @@ const PostSignalView: React.FC<{
                                     id="category"
                                     value={category}
                                     onChange={e => setCategory(e.target.value)}
-                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition text-white"
                                     placeholder="e.g., Crypto, Stocks, Sports"
                                     required
                                 />
@@ -368,7 +377,7 @@ const PostSignalView: React.FC<{
                                     id="platform"
                                     value={platform}
                                     onChange={e => setPlatform(e.target.value)}
-                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-white"
+                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition text-white"
                                 >
                                     <option value="Polymarket">Polymarket</option>
                                     <option value="Kalshi">Kalshi</option>
@@ -386,7 +395,7 @@ const PostSignalView: React.FC<{
                                 id="price"
                                 value={price}
                                 onChange={e => setPrice(e.target.value)}
-                                className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition text-white"
                                 required
                                 min="0"
                                 step="1"
@@ -402,7 +411,7 @@ const PostSignalView: React.FC<{
                                 id="marketUrl"
                                 value={marketUrl}
                                 onChange={e => setMarketUrl(e.target.value)}
-                                className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition text-white"
                                 placeholder="https://polymarket.com/event/..."
                                 required
                             />
@@ -418,35 +427,35 @@ const PostSignalView: React.FC<{
                             value={content}
                             onChange={e => setContent(e.target.value)}
                             rows={3}
-                            className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                            className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition text-white"
                             placeholder={mode === 'PREDICTION' ? "e.g., Yes on Trump winning PA..." : "e.g., Long $BTC, entry at $68,500..."}
                             required
                         />
                     </div>
                     
-                    <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-500 transition-colors duration-200">
+                    <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-emerald-500 transition-all duration-200 shadow-lg shadow-emerald-900/20">
                         Add to Batch
                     </button>
                 </form>
             </div>
             {batch.length > 0 && (
-                <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8">
+                <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 md:p-8">
                     <h2 className="text-2xl font-bold mb-4">Signal Batch ({batch.length})</h2>
                     <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                         {batch.map((signal, index) => (
-                            <div key={index} className="bg-gray-900 p-3 rounded-lg flex justify-between items-center">
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        {signal.platform && <span className="text-xs bg-gray-700 px-1.5 rounded">{signal.platform}</span>}
-                                        <p className="text-gray-300">{signal.content}</p>
+                            <div key={index} className="bg-gray-900 p-3 rounded-lg flex justify-between items-center border border-gray-700">
+                                <div className="min-w-0 mr-4">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        {signal.platform && <span className="text-xs bg-gray-700 px-1.5 rounded whitespace-nowrap">{signal.platform}</span>}
+                                        <p className="text-gray-300 truncate">{signal.content}</p>
                                     </div>
-                                    {signal.marketUrl && <p className="text-xs text-indigo-500 mt-1 truncate max-w-sm">{signal.marketUrl}</p>}
+                                    {signal.marketUrl && <p className="text-xs text-emerald-500 mt-1 truncate max-w-sm">{signal.marketUrl}</p>}
                                 </div>
-                                <span className="text-sm font-semibold">{formatCurrency(parseFloat(signal.price))}</span>
+                                <span className="text-sm font-semibold whitespace-nowrap text-emerald-400">{formatCurrency(parseFloat(signal.price))}</span>
                             </div>
                         ))}
                     </div>
-                    <button onClick={handlePostBatch} className="mt-6 w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-500 transition-colors duration-200">
+                    <button onClick={handlePostBatch} className="mt-6 w-full bg-emerald-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-emerald-400 transition-colors duration-200">
                         Publish {batch.length} Signal{batch.length > 1 ? 's' : ''}
                     </button>
                 </div>
@@ -477,10 +486,10 @@ const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ sign
     }, [signals, search, sortKey, users]);
 
     return (
-        <div>
-            <h1 className="text-4xl font-bold text-white mb-2">Public Ledger</h1>
-            <p className="text-gray-400 mb-6 max-w-3xl">A transparent, immutable record of all signals and their outcomes.</p>
-            <div className="flex space-x-4 mb-4">
+        <div className="pb-10">
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 tracking-tight">Public Ledger</h1>
+            <p className="text-gray-400 mb-6 max-w-3xl text-sm md:text-base">A transparent, immutable record of all signals and their outcomes.</p>
+            <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mb-4">
                 <div className="relative flex-grow">
                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input 
@@ -488,13 +497,13 @@ const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ sign
                         placeholder="Search ledger..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-600 rounded-lg p-2 pl-10 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                        className="w-full bg-gray-900 border border-gray-600 rounded-lg p-2 pl-10 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition text-white"
                     />
                 </div>
                 <select 
                     value={sortKey} 
                     onChange={e => setSortKey(e.target.value)}
-                    className="bg-gray-900 border border-gray-600 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                    className="bg-gray-900 border border-gray-600 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition text-white"
                 >
                     <option value="timestamp">Sort by Date</option>
                     <option value="outcome">Sort by Outcome</option>
@@ -502,7 +511,7 @@ const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ sign
             </div>
             <div className="bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table className="w-full text-left min-w-[800px]">
                         <thead className="bg-gray-900/50">
                             <tr>
                                 <th className="p-4 font-semibold text-sm text-gray-300">Signal</th>
@@ -602,21 +611,21 @@ const BuyerDashboard: React.FC<{
     }, [signals, users]);
 
     return (
-        <div className="space-y-12">
+        <div className="space-y-12 pb-10">
             <div>
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-4xl font-bold text-white">Available Signals</h1>
-                    <div className="bg-indigo-500/20 text-indigo-300 font-bold py-2 px-4 rounded-lg flex items-center">
-                        <TagIcon className="w-5 h-5 mr-2"/>
-                        <span>{buyer.credits} Credit{buyer.credits !== 1 ? 's' : ''} Available</span>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Available Signals</h1>
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold py-2 px-4 rounded-full flex items-center shadow-sm">
+                        <ShieldCheckIcon className="w-5 h-5 mr-2"/>
+                        <span>{buyer.credits} Protection Credit{buyer.credits !== 1 ? 's' : ''}</span>
                     </div>
                 </div>
-                 <div className="flex space-x-4 mb-6">
+                 <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mb-6">
                     <div className="relative flex-grow">
                         <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input type="text" placeholder="Filter by content, category, or platform..." value={filter} onChange={e => setFilter(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 pl-10 pr-4 focus:ring-indigo-500"/>
+                        <input type="text" placeholder="Filter by content, category, or platform..." value={filter} onChange={e => setFilter(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 pl-10 pr-4 focus:ring-emerald-500 text-white"/>
                     </div>
-                    <select value={sort} onChange={e => setSort(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 focus:ring-indigo-500">
+                    <select value={sort} onChange={e => setSort(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 focus:ring-emerald-500 text-white">
                         <option value="timestamp-desc">Newest</option>
                         <option value="timestamp-asc">Oldest</option>
                         <option value="price-desc">Price: High to Low</option>
@@ -645,12 +654,12 @@ const BuyerDashboard: React.FC<{
             </div>
 
             <div className="space-y-6">
-                 <h2 className="text-2xl font-bold">Creator Stats</h2>
+                 <h2 className="text-2xl font-bold tracking-tight">Creator Stats</h2>
                  {creatorStats.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {creatorStats.map(stat => stat.creator && (
                             <div key={stat.creator.id} className="bg-gray-800 border border-gray-700 p-4 rounded-xl flex items-center space-x-4">
-                                <img src={stat.creator.avatarUrl} alt={stat.creator.name} className="w-12 h-12 rounded-full" />
+                                <img src={stat.creator.avatarUrl} alt={stat.creator.name} className="w-12 h-12 rounded-full border border-gray-600" />
                                 <div>
                                     <p className="font-bold text-white">{stat.creator.name}</p>
                                     <div className="flex items-center space-x-2 text-sm mt-1">
@@ -665,7 +674,7 @@ const BuyerDashboard: React.FC<{
             </div>
 
             <div>
-                <h2 className="text-2xl font-bold mb-6">Your Purchase History</h2>
+                <h2 className="text-2xl font-bold mb-6 tracking-tight">Your Purchase History</h2>
                 {purchaseHistory.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {purchaseHistory.map(signal => (
@@ -695,40 +704,46 @@ const BuyerDashboard: React.FC<{
 type View = 'creator-dashboard' | 'post-signal' | 'public-ledger' | 'buyer-dashboard';
 
 export default function App() {
-    // --- PERSISTENT STATE ---
-    // Using localStorage to maintain state across reloads, simulating a backend database
+    // Multi-tenancy: Data is scoped by the Company ID provided by Whop Service
+    const companyId = whopService.getCompanyId();
+    // Helper to get company-scoped storage key
+    const getStorageKey = (key: string) => `whop_data_${companyId}_${key}`;
+
     const [signals, setSignals] = useState<Signal[]>(() => {
         try {
-            const saved = localStorage.getItem('signals');
+            const saved = localStorage.getItem(getStorageKey('signals'));
             return saved ? JSON.parse(saved) : [];
         } catch { return []; }
     });
     
     const [purchases, setPurchases] = useState<Purchase[]>(() => {
         try {
-            const saved = localStorage.getItem('purchases');
+            const saved = localStorage.getItem(getStorageKey('purchases'));
             return saved ? JSON.parse(saved) : [];
         } catch { return []; }
     });
 
     // Save to localStorage whenever state changes
     useEffect(() => {
-        localStorage.setItem('signals', JSON.stringify(signals));
-    }, [signals]);
+        localStorage.setItem(getStorageKey('signals'), JSON.stringify(signals));
+    }, [signals, companyId]);
 
     useEffect(() => {
-        localStorage.setItem('purchases', JSON.stringify(purchases));
-    }, [purchases]);
+        localStorage.setItem(getStorageKey('purchases'), JSON.stringify(purchases));
+    }, [purchases, companyId]);
 
     const [users, setUsers] = useState<User[]>([]);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [activeView, setActiveView] = useState<View>('buyer-dashboard');
+    const [activeView, setActiveView] = useState<View | null>(null); // Null initial to prevent flash
     const [toast, setToast] = useState({ show: false, message: '' });
+    
+    // Mobile menu state
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     useEffect(() => {
         const initApp = async () => {
             await whopService.initialize();
-            refreshUserData();
+            await refreshUserData();
         };
         initApp();
     }, []);
@@ -738,10 +753,13 @@ export default function App() {
         const allUsers = await whopService.getAllUsers();
         setCurrentUser(user);
         setUsers(allUsers);
-        if (user) {
-            // Default view based on role, but prioritize current view if set
-            setActiveView(prev => prev || (user.role === UserRole.CREATOR ? 'creator-dashboard' : 'buyer-dashboard'));
-        }
+        
+        // Strictly set view based on Role only if not already set (initial load)
+        setActiveView(prev => {
+            if (prev) return prev; // Don't override navigation
+            if (user && user.role === UserRole.CREATOR) return 'creator-dashboard';
+            return 'buyer-dashboard';
+        });
     }
 
     const showToast = (message: string) => {
@@ -749,9 +767,11 @@ export default function App() {
     };
 
     const handlePostSignal = (content: string, price: number, category: string, platform?: string, marketUrl?: string) => {
-        if (!currentUser) return;
+        if (!currentUser || currentUser.role !== UserRole.CREATOR) return;
+        
         const newSignal: Signal = {
             id: `sig-${Date.now()}${Math.random()}`,
+            companyId: companyId,
             creatorId: currentUser.id,
             content,
             price,
@@ -768,6 +788,8 @@ export default function App() {
     };
 
     const handleSettleSignal = async (signalId: string, outcome: Outcome) => {
+        if (!currentUser || currentUser.role !== UserRole.CREATOR) return;
+
         try {
             setSignals(prev => prev.map(s => s.id === signalId ? { ...s, outcome } : s));
     
@@ -778,14 +800,19 @@ export default function App() {
                     await whopService.addCredit(userId);
                     creditedCount++;
                 }
-                showToast(`Signal settled as LOSS. ${creditedCount} buyers have been credited via Whop.`);
+                showToast(`Signal settled as LOSS. ${creditedCount} buyers credited.`);
                 refreshUserData(); // Refresh to see updated credits
             } else {
                  showToast('Signal settled as WIN.');
             }
         } catch (error: unknown) {
             console.error("Failed to settle signal:", error);
-            const errorMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : 'An error occurred while settling the signal.';
+            let errorMessage = 'An error occurred';
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            } else if (typeof error === 'string') {
+                errorMessage = error;
+            }
             showToast(errorMessage);
         }
     };
@@ -804,7 +831,7 @@ export default function App() {
             await whopService.useCredit(freshUser.id);
             purchaseSuccessful = true;
             pricePaid = 0;
-            showToast(`Unlocked with 1 credit!`);
+            showToast(`Unlocked with 1 protection credit!`);
         } else {
             showToast(`Redirecting to Whop checkout...`);
             const checkoutResult = await whopService.createCheckout(signal.price);
@@ -820,6 +847,7 @@ export default function App() {
         if (purchaseSuccessful) {
             const newPurchase: Purchase = {
                 id: `pur-${Date.now()}`,
+                companyId: companyId,
                 userId: freshUser.id,
                 signalId: signal.id,
                 pricePaid,
@@ -830,46 +858,42 @@ export default function App() {
         }
     };
 
-    const handleSwitchRole = async () => {
-        const newUser = await whopService.switchUserRole();
-        await refreshUserData();
-        setActiveView(newUser.role === UserRole.CREATOR ? 'creator-dashboard' : 'buyer-dashboard');
-        showToast(`Switched to ${newUser.role} mode`);
-    };
-
     const handleResetData = async () => {
-        if(window.confirm("This will clear all local data and reset the app to a fresh state. Continue?")) {
-            localStorage.clear();
-            
-            // Soft Reset: Clear state in memory without reloading the page
+        if(window.confirm("DEBUG: Clear data for this company? (Simulates fresh install)")) {
             setSignals([]);
             setPurchases([]);
             setUsers([]);
             setCurrentUser(null);
-
-            // Re-initialize to ensure fresh install experience
-            await whopService.initialize();
-            // Force recreation of default user by calling getCurrentUser after clearing storage
-            const user = await whopService.getCurrentUser();
-            const allUsers = await whopService.getAllUsers();
             
-            setCurrentUser(user);
-            setUsers(allUsers);
-            setActiveView(user.role === UserRole.CREATOR ? 'creator-dashboard' : 'buyer-dashboard');
+            await whopService.resetCompanyData();
             
-            showToast("App data reset successfully.");
+            // Soft Reset
+            window.location.reload(); 
         }
     };
 
     const handleNotify = async (segment: BuyerSegment) => {
-        await whopService.sendNotification(segment, "A new high-value signal is available. Check it out!");
-        showToast(`Notifying "${segment}" segment via Whop...`);
+        if (!currentUser || currentUser.role !== UserRole.CREATOR) return;
+        showToast(`Sending notification to ${segment}...`);
+        await whopService.sendNotification(segment, "New signal available!");
+        showToast(`Notification sent successfully to ${segment}`);
     };
     
-    if (!currentUser) {
-        return <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">Loading User via Whop...</div>
+    // Feature for Creator to test Buyer view without a "Toggle" that violates rules
+    const handleViewAsMember = async () => {
+        if (currentUser) {
+            await whopService.debugSwitchRole(currentUser.id, UserRole.BUYER);
+            await refreshUserData();
+            setActiveView('buyer-dashboard');
+            showToast("Switched to Member View");
+        }
+    };
+
+    if (!currentUser || !activeView) {
+        return <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white animate-pulse">Loading Pay Per Profit...</div>
     }
 
+    // Dynamic Navigation based strictly on Role
     const navItemsMap: { [key in UserRole]: { view: View; label: string; icon: React.ReactNode }[] } = {
         [UserRole.CREATOR]: [
             { view: 'creator-dashboard', label: 'Dashboard', icon: <ChartBarIcon className="w-6 h-6" /> },
@@ -885,14 +909,43 @@ export default function App() {
     const currentNavItems = navItemsMap[currentUser.role];
 
     return (
-        <div className="min-h-screen flex">
+        <div className="min-h-screen flex bg-gray-900 text-gray-100 font-inter">
             <Toast message={toast.message} show={toast.show} onClose={() => setToast({show: false, message: ''})}/>
-            {/* Sidebar */}
-            <aside className="w-72 bg-gray-900 border-r border-gray-800 p-6 flex-shrink-0 flex flex-col justify-between">
-                <div>
-                    <div className="flex items-center space-x-3 mb-10">
-                        <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">S</div>
-                        <h1 className="text-2xl font-bold text-white">Signals</h1>
+
+            {/* Mobile Header */}
+            <div className="lg:hidden fixed top-0 left-0 right-0 bg-gray-900 border-b border-gray-800 p-4 flex items-center justify-between z-50 shadow-md">
+                <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 bg-emerald-500 rounded flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/20">
+                         <CurrencyDollarIcon className="w-5 h-5"/>
+                    </div>
+                    <h1 className="text-lg font-bold tracking-tight">Pay Per Profit</h1>
+                </div>
+                <button 
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="p-2 text-gray-400 hover:text-white"
+                >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        {isMobileMenuOpen ? (
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        ) : (
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        )}
+                    </svg>
+                </button>
+            </div>
+
+            {/* Sidebar (Responsive) */}
+            <aside className={`
+                fixed inset-y-0 left-0 z-40 w-72 bg-gray-900 border-r border-gray-800 p-6 flex flex-col justify-between transform transition-transform duration-300 ease-in-out
+                lg:translate-x-0 lg:static lg:inset-auto lg:h-screen lg:overflow-y-auto
+                ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}>
+                <div className="mt-14 lg:mt-0">
+                    <div className="hidden lg:flex items-center space-x-3 mb-10">
+                        <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                            <CurrencyDollarIcon className="w-6 h-6"/>
+                        </div>
+                        <h1 className="text-xl font-bold text-white tracking-tight">Pay Per Profit</h1>
                     </div>
                     <nav className="space-y-2">
                          {currentNavItems.map(item => (
@@ -901,52 +954,64 @@ export default function App() {
                                 icon={item.icon}
                                 label={item.label}
                                 active={activeView === item.view}
-                                onClick={() => setActiveView(item.view)}
+                                onClick={() => {
+                                    setActiveView(item.view);
+                                    setIsMobileMenuOpen(false);
+                                }}
                             />
                         ))}
                     </nav>
                 </div>
                 <div className="border-t border-gray-700 pt-6">
-                    <p className="text-sm text-gray-400 mb-3">Logged in via Whop</p>
-                    <div className={`w-full flex items-center p-2 rounded-lg text-left bg-gray-800 mb-4`}>
-                        <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-10 h-10 rounded-full" />
-                        <div className="ml-3">
-                            <p className="font-semibold text-white text-sm">{currentUser.name}</p>
-                            <p className="text-xs text-gray-400">{currentUser.role}</p>
+                    <div className={`w-full flex items-center p-3 rounded-lg text-left bg-gray-800/50 mb-4 border border-gray-700`}>
+                        <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-10 h-10 rounded-full border border-gray-600" />
+                        <div className="ml-3 overflow-hidden">
+                            <p className="font-semibold text-white text-sm truncate">{currentUser.name}</p>
+                            <p className="text-xs text-emerald-400 font-medium">{currentUser.role === UserRole.CREATOR ? 'Admin' : 'Member'}</p>
                         </div>
                     </div>
-                    <div className="flex space-x-2">
-                         <button 
-                            onClick={handleSwitchRole}
-                            className="flex-1 text-xs text-indigo-400 hover:text-indigo-300 underline"
-                        >
-                            Switch Role
-                        </button>
-                        <button 
-                            onClick={handleResetData}
-                            className="flex-1 text-xs text-red-400 hover:text-red-300 underline"
-                        >
-                            Reset Data
-                        </button>
-                    </div>
+                    {/* Debug button only - useful for reviewer to reset state */}
+                    <button 
+                        onClick={handleResetData}
+                        className="block w-full text-center text-xs text-gray-500 hover:text-red-400 mt-2 transition-colors"
+                    >
+                        Reset Demo Data
+                    </button>
                 </div>
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 p-6 md:p-12 overflow-y-auto">
+            <main className="flex-1 p-4 pt-20 lg:p-12 lg:pt-12 overflow-y-auto w-full bg-[#0B1120]">
+                 {/* Only Render Views if Permissions Match */}
+                 
                  {activeView === 'creator-dashboard' && currentUser.role === UserRole.CREATOR && (
-                    <CreatorDashboard creator={currentUser} signals={signals} purchases={purchases} onSettle={handleSettleSignal} onNotify={handleNotify}/>
+                    <CreatorDashboard creator={currentUser} signals={signals} purchases={purchases} onSettle={handleSettleSignal} onNotify={handleNotify} onViewAsMember={handleViewAsMember}/>
                  )}
                  {activeView === 'post-signal' && currentUser.role === UserRole.CREATOR && (
                     <PostSignalView creator={currentUser} onPostSignal={handlePostSignal} />
                  )}
+                 
                  {activeView === 'public-ledger' && (
                     <PublicLedgerView signals={signals} users={users} />
                  )}
+                 
                  {activeView === 'buyer-dashboard' && currentUser.role === UserRole.BUYER && (
                     <BuyerDashboard buyer={currentUser} signals={signals} users={users} purchases={purchases} onPurchase={handlePurchaseSignal} />
                  )}
+
+                 {/* Fallback protection */}
+                 {activeView === 'creator-dashboard' && currentUser.role !== UserRole.CREATOR && (
+                     <div className="text-center mt-20 text-red-400">Access Denied</div>
+                 )}
             </main>
+            
+            {/* Overlay for mobile menu */}
+            {isMobileMenuOpen && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                ></div>
+            )}
         </div>
     );
 }
