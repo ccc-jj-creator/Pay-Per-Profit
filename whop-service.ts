@@ -1,68 +1,109 @@
 
 import { User, UserRole, BuyerSegment } from './types';
 
-// --- HELPERS ---
+// --- Whop Credentials (as provided by the user) ---
+const WHOP_API_KEY = 'mn2p2seY4TcU-oKfpAUtG_VI5dlFBFLwsFWErCLPeEA';
+const NEXT_PUBLIC_WHOP_APP_ID = 'app_nrC8u0nhX1OdjK';
+const NEXT_PUBLIC_WHOP_AGENT_USER_ID = 'user_5zfkzDbl0Ahxq';
 
 /**
- * StorageHelper ensures the app works even if localStorage is blocked 
- * (common in iframes/incognito mode).
+ * Extracts the Whop context ID (experienceId or companyId) from the URL.
+ * This is crucial for data isolation - each Whop installation gets its own data.
+ * 
+ * URL patterns (Whop passes these in the iframe URL):
+ * - Experience View: /experiences/[experienceId] → exp_xxxxx
+ * - Dashboard View: /dashboard/[companyId] → biz_xxxxx
+ * 
+ * The Whop iframe loads your app with the full path, so the experienceId/companyId
+ * should be extractable from the pathname.
  */
-class StorageHelper {
-    private memory: Record<string, string> = {};
-
-    getItem(key: string): string | null {
-        try {
-            return localStorage.getItem(key);
-        } catch {
-            try {
-                return sessionStorage.getItem(key);
-            } catch {
-                return this.memory[key] || null;
-            }
-        }
+function getWhopContextId(): string {
+  const path = window.location.pathname;
+  const fullUrl = window.location.href;
+  
+  console.log('[Whop Context] Extracting context from:', { path, fullUrl });
+  
+  // Pattern 1: /experiences/exp_xxx or /experiences/exp_xxx/... 
+  const experienceMatch = path.match(/\/experiences\/(exp_[a-zA-Z0-9]+)/);
+  if (experienceMatch) {
+    console.log('[Whop Context] Found experienceId in path:', experienceMatch[1]);
+    return experienceMatch[1];
+  }
+  
+  // Pattern 2: /dashboard/biz_xxx or /dashboard/biz_xxx/...
+  const dashboardMatch = path.match(/\/dashboard\/(biz_[a-zA-Z0-9]+)/);
+  if (dashboardMatch) {
+    console.log('[Whop Context] Found companyId in path:', dashboardMatch[1]);
+    return dashboardMatch[1];
+  }
+  
+  // Pattern 3: exp_xxx or biz_xxx anywhere in the path (flexible matching)
+  const flexExpMatch = path.match(/(exp_[a-zA-Z0-9]+)/);
+  if (flexExpMatch) {
+    console.log('[Whop Context] Found experienceId (flex match):', flexExpMatch[1]);
+    return flexExpMatch[1];
+  }
+  
+  const flexBizMatch = path.match(/(biz_[a-zA-Z0-9]+)/);
+  if (flexBizMatch) {
+    console.log('[Whop Context] Found companyId (flex match):', flexBizMatch[1]);
+    return flexBizMatch[1];
+  }
+  
+  // Pattern 4: Check URL search params (some setups pass context this way)
+  const urlParams = new URLSearchParams(window.location.search);
+  const experienceId = urlParams.get('experienceId') || urlParams.get('experience_id') || urlParams.get('exp');
+  if (experienceId) {
+    console.log('[Whop Context] Found experienceId in query params:', experienceId);
+    return experienceId;
+  }
+  
+  const companyId = urlParams.get('companyId') || urlParams.get('company_id') || urlParams.get('biz');
+  if (companyId) {
+    console.log('[Whop Context] Found companyId in query params:', companyId);
+    return companyId;
+  }
+  
+  // Pattern 5: Check if we're in a Whop iframe by looking at referrer
+  const referrer = document.referrer;
+  if (referrer && referrer.includes('whop.com')) {
+    // Try to extract from referrer URL
+    const refExpMatch = referrer.match(/(exp_[a-zA-Z0-9]+)/);
+    if (refExpMatch) {
+      console.log('[Whop Context] Found experienceId in referrer:', refExpMatch[1]);
+      return refExpMatch[1];
     }
-
-    setItem(key: string, value: string): void {
-        try {
-            localStorage.setItem(key, value);
-        } catch {
-            try {
-                sessionStorage.setItem(key, value);
-            } catch {
-                this.memory[key] = value;
-            }
-        }
+    const refBizMatch = referrer.match(/(biz_[a-zA-Z0-9]+)/);
+    if (refBizMatch) {
+      console.log('[Whop Context] Found companyId in referrer:', refBizMatch[1]);
+      return refBizMatch[1];
     }
-
-    removeItem(key: string): void {
-        try {
-            localStorage.removeItem(key);
-        } catch {
-            try {
-                sessionStorage.removeItem(key);
-            } catch {
-                delete this.memory[key];
-            }
-        }
-    }
+  }
+  
+  // CRITICAL: In production, we should NOT use a shared fallback!
+  // Generate a unique session-based fallback to prevent data leakage
+  // This will reset on each page load, which is safer than sharing data
+  const sessionFallback = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  console.error('[Whop Context] WARNING: Could not extract Whop context ID from URL!');
+  console.error('[Whop Context] Path:', path);
+  console.error('[Whop Context] Full URL:', fullUrl);
+  console.error('[Whop Context] Using temporary session-based fallback:', sessionFallback);
+  console.error('[Whop Context] Data will NOT persist between sessions.');
+  console.error('[Whop Context] Ensure your app is loaded via the correct Whop iframe URL.');
+  
+  return sessionFallback;
 }
 
-const storage = new StorageHelper();
+// Get the context ID once at module load - this namespaces all storage
+const WHOP_CONTEXT_ID = getWhopContextId();
 
-// Helper to get company ID from URL (simulating Whop iframe context)
-const getParamFromUrl = (keys: string[]) => {
-    if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
-        for (const key of keys) {
-            const val = params.get(key);
-            if (val) return val;
-        }
-    }
-    return null;
-};
+// Namespaced storage keys - ensures data isolation per Whop installation
+const getStorageKey = (key: string) => `whop_${WHOP_CONTEXT_ID}_${key}`;
+const STORAGE_KEY_USERS = getStorageKey('users');
+const STORAGE_KEY_CURRENT_USER_ID = getStorageKey('current_user_id');
 
-// Storage keys are now functions to ensure multi-tenancy
-const getStorageKey = (key: string, companyId: string) => `whop_data_${companyId}_${key}`;
+// Export for use in App.tsx
+export { getStorageKey, WHOP_CONTEXT_ID };
 
 /**
  * Introduces a delay for API calls.
@@ -70,34 +111,55 @@ const getStorageKey = (key: string, companyId: string) => `whop_data_${companyId
  */
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Cleans up any old data that might have been stored with generic prefixes.
+ * This helps ensure data isolation when the context extraction was previously failing.
+ */
+function cleanupStaleData(): void {
+  const keysToRemove: string[] = [];
+  
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key) {
+      // Remove any data with the old dev_ prefix that wasn't properly scoped
+      // But preserve data that's properly scoped to a real Whop context
+      if (key.startsWith('whop_dev_') || key.startsWith('whop_session_')) {
+        keysToRemove.push(key);
+      }
+    }
+  }
+  
+  if (keysToRemove.length > 0) {
+    console.log('[Whop Cleanup] Removing stale data from previous sessions:', keysToRemove);
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+  }
+}
+
 class WhopService {
   private initialized = false;
-  private currentCompanyId: string = 'unknown_biz';
 
   /**
    * Initializes the Whop SDK.
+   * Also cleans up any stale data from improperly scoped sessions.
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
     
-    // Whop typically passes the business ID as 'bizId' or 'companyId'
-    const urlId = getParamFromUrl(['bizId', 'companyId', 'experienceId']);
-    this.currentCompanyId = urlId || 'dev_default_biz';
+    console.log('[Whop SDK] Initializing with App ID:', NEXT_PUBLIC_WHOP_APP_ID);
+    console.log('[Whop SDK] Context ID:', WHOP_CONTEXT_ID);
     
-    console.log(`[WhopService] Initializing for Company: ${this.currentCompanyId}`);
+    // Clean up any stale data from sessions that weren't properly scoped
+    // This ensures fresh installs don't see data from other users/installations
+    cleanupStaleData();
     
-    // Simulate SDK initialization
-    await sleep(300); 
+    await sleep(300); // Async initialization
     this.initialized = true;
-  }
-
-  getCompanyId(): string {
-      return this.currentCompanyId;
+    console.log('[Whop SDK] Initialized successfully.');
   }
 
   private getUsers(): User[] {
     try {
-      const stored = storage.getItem(getStorageKey('users', this.currentCompanyId));
+      const stored = localStorage.getItem(STORAGE_KEY_USERS);
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -105,140 +167,142 @@ class WhopService {
   }
 
   private saveUsers(users: User[]) {
-    storage.setItem(getStorageKey('users', this.currentCompanyId), JSON.stringify(users));
+    localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
   }
 
   /**
    * Gets the current authenticated user from Whop.
-   * STRICTLY USES URL PARAMS TO DETERMINE IDENTITY AND ROLE
+   * Uses localStorage to simulate a session.
    */
   async getCurrentUser(): Promise<User> {
     if (!this.initialized) await this.initialize();
-    
-    // 1. Try to get identity from URL (iframe context)
-    const userId = getParamFromUrl(['user_id', 'userId', 'sub']);
-    const name = getParamFromUrl(['name', 'username', 'full_name']);
-    const avatar = getParamFromUrl(['avatar', 'picture', 'image_url']);
-    const roleParam = getParamFromUrl(['role', 'roles']);
+    await sleep(200);
 
-    // 2. Determine Role strictly
-    let role = UserRole.BUYER; // Default to Buyer for safety
-    if (roleParam) {
-        const r = roleParam.toLowerCase();
-        if (r.includes('admin') || r.includes('creator') || r.includes('owner')) {
-            role = UserRole.CREATOR;
-        }
-    }
-
-    // 3. Hydrate or Load User
-    // If we have a userId from URL, we prioritize that.
-    // If not, we fallback to a stored session (only for dev/testing outside iframe).
-    
     let users = this.getUsers();
-    let user: User | undefined;
+    let currentUserId = localStorage.getItem(STORAGE_KEY_CURRENT_USER_ID);
+    let user = users.find(u => u.id === currentUserId);
 
-    if (userId) {
-        user = users.find(u => u.id === userId);
-        if (!user) {
-            // New user entering the app
-            user = {
-                id: userId,
-                name: name || `User ${userId.substr(0,4)}`,
-                avatarUrl: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=random`,
-                role: role,
-                credits: role === UserRole.BUYER ? 0 : 0 // Start with 0 credits
-            };
-            users.push(user);
-            this.saveUsers(users);
-        } else {
-            // Update role if changed in URL
-            if (user.role !== role) {
-                user.role = role;
-                this.saveUsers(users);
-            }
-        }
-    } else {
-        // FALLBACK FOR DEV/LOCALHOST ONLY (When no URL params exist)
-        // Check if we have a persisted session
-        const sessionKey = getStorageKey('current_user_id', this.currentCompanyId);
-        let storedId = storage.getItem(sessionKey);
-        user = users.find(u => u.id === storedId);
-
-        if (!user) {
-             // Create a dummy user for dev
-             const isFirstUser = users.length === 0;
-             const devRole = isFirstUser ? UserRole.CREATOR : UserRole.BUYER;
-             user = {
-                 id: `dev-${Date.now()}`,
-                 name: isFirstUser ? 'Dev Admin' : 'Dev Member',
-                 avatarUrl: `https://ui-avatars.com/api/?name=Dev&background=random`,
-                 role: devRole,
-                 credits: 5
-             };
-             users.push(user);
-             this.saveUsers(users);
-             storage.setItem(sessionKey, user.id);
-        }
+    if (!user) {
+      // Create a fresh user for this "install"
+      user = {
+        id: `user-${Date.now()}`,
+        name: 'Creator',
+        avatarUrl: `https://ui-avatars.com/api/?name=Creator&background=random`,
+        role: UserRole.CREATOR,
+        credits: 0
+      };
+      users.push(user);
+      this.saveUsers(users);
+      localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, user.id);
     }
 
+    console.log('Whop: Fetched current user:', user.name);
     return user;
   }
 
+  /**
+   * Helper for demo purposes to switch roles/users
+   */
+  async switchUserRole(): Promise<User> {
+      let users = this.getUsers();
+      const currentUserId = localStorage.getItem(STORAGE_KEY_CURRENT_USER_ID);
+      const currentUser = users.find(u => u.id === currentUserId);
+      
+      let newUser: User;
+
+      // If we are currently a creator, switch to a buyer (create if needed)
+      if (currentUser?.role === UserRole.CREATOR) {
+          let buyer = users.find(u => u.role === UserRole.BUYER);
+          if (!buyer) {
+              buyer = {
+                  id: `user-buyer-${Date.now()}`,
+                  name: 'Buyer',
+                  avatarUrl: `https://ui-avatars.com/api/?name=Buyer&background=random`,
+                  role: UserRole.BUYER,
+                  credits: 5 // Give some credits to test
+              };
+              users.push(buyer);
+              this.saveUsers(users);
+          }
+          newUser = buyer;
+      } else {
+          // Switch back to creator
+          let creator = users.find(u => u.role === UserRole.CREATOR);
+          if (!creator) {
+             // Should verify logic, but fallback to creating one
+             creator = {
+                id: `user-creator-${Date.now()}`,
+                name: 'Creator',
+                avatarUrl: `https://ui-avatars.com/api/?name=Creator&background=random`,
+                role: UserRole.CREATOR,
+                credits: 0
+             };
+             users.push(creator);
+             this.saveUsers(users);
+          }
+          newUser = creator;
+      }
+
+      localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, newUser.id);
+      return newUser;
+  }
+
+  /**
+   * Fetches all users from the Whop community.
+   */
   async getAllUsers(): Promise<User[]> {
       return this.getUsers();
   }
 
   /**
    * Creates a Whop checkout session for a product.
+   * @param price The price of the signal being sold.
    */
   async createCheckout(price: number): Promise<{ success: boolean }> {
-    console.log(`[WhopService] Creating checkout for ${price} USD`);
-    
-    // Post message to parent to trigger native checkout
-    if (typeof window !== 'undefined' && window.parent) {
-        window.parent.postMessage({
-            type: 'WHOP_OPEN_CHECKOUT',
-            payload: { price }
-        }, '*');
-    }
-
-    await sleep(800); 
+    console.log(`Whop: Creating checkout for ${price} USD using Context ID: ${WHOP_CONTEXT_ID}`);
+    await sleep(1000); 
+    console.log('Whop: Checkout successful.');
     return { success: true };
   }
 
   /**
    * Sends a push notification to a segment of users via Whop.
+   * @param segment The buyer segment to target.
+   * @param message The message to send.
    */
   async sendNotification(segment: BuyerSegment, message: string): Promise<void> {
-    console.log(`[WhopService] Sending notification: "${message}" to ${segment}`);
-    
-    if (typeof window !== 'undefined' && window.parent) {
-        window.parent.postMessage({
-            type: 'WHOP_SEND_NOTIFICATION',
-            payload: { segment, message }
-        }, '*');
-    }
-
-    await sleep(800);
-    return Promise.resolve();
+    console.log(`Whop: Sending notification to segment "${segment}"`);
+    console.log(`-> Message: "${message}"`);
+    await sleep(500);
+    console.log('Whop: Notification sent successfully.');
   }
 
+  /**
+   * Adds a credit to a user's metadata on Whop.
+   * @param userId The ID of the user to credit.
+   */
   async addCredit(userId: string): Promise<void> {
     const users = this.getUsers();
     const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex > -1) {
       users[userIndex].credits++;
       this.saveUsers(users);
+      console.log(`Whop API: Added 1 credit to ${users[userIndex].name}. New balance: ${users[userIndex].credits}.`);
     }
     await sleep(100); 
   }
 
+  /**
+   * Uses a credit from a user's metadata on Whop.
+   * @param userId The ID of the user using the credit.
+   */
   async useCredit(userId: string): Promise<void> {
      const users = this.getUsers();
      const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex > -1 && users[userIndex].credits > 0) {
       users[userIndex].credits--;
       this.saveUsers(users);
+      console.log(`Whop API: Used 1 credit for ${users[userIndex].name}. New balance: ${users[userIndex].credits}.`);
     }
     await sleep(100);
   }

@@ -7,7 +7,6 @@ export enum Outcome {
 
 export interface Signal {
   id: string;
-  companyId: string; // Added for multi-tenancy
   creatorId: string;
   content: string;
   price: number;
@@ -34,7 +33,6 @@ export interface User {
 
 export interface Purchase {
   id: string;
-  companyId: string; // Added for multi-tenancy
   userId: string;
   signalId: string;
   pricePaid: number;
