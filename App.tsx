@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Signal, User, Purchase, Outcome, UserRole, BuyerSegment } from './types';
-import { ChartBarIcon, PlusCircleIcon, BookOpenIcon, UsersIcon, CheckCircleIcon, XCircleIcon, ClockIcon, LockClosedIcon, TagIcon, TrophyIcon, ArrowUpDownIcon, MagnifyingGlassIcon, LinkIcon, GlobeIcon } from './components/icons';
+import { ChartBarIcon, PlusCircleIcon, BookOpenIcon, UsersIcon, CheckCircleIcon, XCircleIcon, ClockIcon, LockClosedIcon, TagIcon, TrophyIcon, ArrowUpDownIcon, MagnifyingGlassIcon, LinkIcon, GlobeIcon, Bars3Icon, XMarkIcon } from './components/icons';
 import { whopService, getStorageKey } from './whop-service';
+import { WhopProvider, useWhop } from './context/WhopContext';
 
 // --- UTILITY FUNCTIONS ---
 const simpleHash = (str: string): string => {
@@ -140,9 +141,11 @@ const SignalCard: React.FC<{
     isSettled: boolean;
     onPurchase: (signal: Signal) => void;
     currentUser: User;
-}> = ({ signal, creator, isPurchased, isSettled, onPurchase, currentUser }) => {
+    isSeller?: boolean; // From Whop context - true if viewing as seller/admin
+}> = ({ signal, creator, isPurchased, isSettled, onPurchase, currentUser, isSeller = false }) => {
 
-    const canView = isPurchased || currentUser.role === UserRole.CREATOR;
+    // Sellers can always view signal content, buyers need to purchase
+    const canView = isPurchased || isSeller;
 
     return (
         <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500 transition-all duration-300">
@@ -191,7 +194,7 @@ const SignalCard: React.FC<{
                     <span>{new Date(signal.timestamp).toLocaleString()}</span>
                     <OutcomeBadge outcome={signal.outcome} />
                 </div>
-                {!isPurchased && currentUser.role === UserRole.BUYER && !isSettled && (
+                {!isPurchased && !isSeller && !isSettled && (
                      <button
                         onClick={() => onPurchase(signal)}
                         className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200"
@@ -233,9 +236,9 @@ const CreatorDashboard: React.FC<{
     }, [creatorSignals, purchases, settledSignals]);
     
     return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-start">
-                 <h1 className="text-4xl font-bold text-white">Creator Dashboard</h1>
+        <div className="space-y-6 sm:space-y-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-4">
+                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">Creator Dashboard</h1>
                  <PerformanceBadge winRate={analytics.winRateNum} />
             </div>
 
@@ -255,12 +258,12 @@ const CreatorDashboard: React.FC<{
             </div>
 
             {/* Buyer Segmentation & Whop Integration */}
-            <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6">
-                <h2 className="text-xl font-bold mb-4">Buyer Engagement</h2>
-                <p className="text-gray-400 mb-6">One-click push notifications to your Whop community based on buyer lifecycle.</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4 sm:p-6">
+                <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Buyer Engagement</h2>
+                <p className="text-gray-400 mb-4 sm:mb-6 text-sm sm:text-base">One-click push notifications to your Whop community based on buyer lifecycle.</p>
+                <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     {(Object.values(BuyerSegment) as BuyerSegment[]).map(segment => (
-                        <button key={segment} onClick={() => onNotify(segment)} className="bg-indigo-600/80 text-white font-semibold py-3 px-2 rounded-lg text-sm hover:bg-indigo-600 transition-colors">
+                        <button key={segment} onClick={() => onNotify(segment)} className="bg-indigo-600/80 text-white font-semibold py-3 px-3 rounded-lg text-sm hover:bg-indigo-600 transition-colors min-h-[48px]">
                             Notify {segment}
                         </button>
                     ))}
@@ -269,22 +272,22 @@ const CreatorDashboard: React.FC<{
 
             {/* Pending Signals */}
             <div>
-                <h2 className="text-2xl font-bold mb-4">Pending Settlement</h2>
+                <h2 className="text-xl sm:text-2xl font-bold mb-4">Pending Settlement</h2>
                 {pendingSignals.length > 0 ? (
                     <div className="space-y-4">
                         {pendingSignals.map(signal => (
-                            <div key={signal.id} className="bg-gray-800 border border-gray-700 rounded-2xl p-4 md:flex items-center justify-between">
-                                <div className="mb-4 md:mb-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                         <p className="font-semibold text-lg">{signal.content}</p>
+                            <div key={signal.id} className="bg-gray-800 border border-gray-700 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                         <p className="font-semibold text-base sm:text-lg break-words">{signal.content}</p>
                                          {signal.platform && <PlatformBadge platform={signal.platform} />}
                                     </div>
                                     <p className="text-sm text-gray-400">Posted: {new Date(signal.timestamp).toLocaleString()}</p>
-                                    {signal.marketUrl && <p className="text-xs text-indigo-400 truncate max-w-md">{signal.marketUrl}</p>}
+                                    {signal.marketUrl && <p className="text-xs text-indigo-400 truncate max-w-full">{signal.marketUrl}</p>}
                                 </div>
-                                <div className="flex space-x-3">
-                                    <button onClick={() => onSettle(signal.id, Outcome.WIN)} className="bg-green-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-600 transition-colors">Win</button>
-                                    <button onClick={() => onSettle(signal.id, Outcome.LOSS)} className="bg-red-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-600 transition-colors">Loss</button>
+                                <div className="flex space-x-3 flex-shrink-0">
+                                    <button onClick={() => onSettle(signal.id, Outcome.WIN)} className="flex-1 md:flex-none bg-green-500 text-white font-bold py-2 px-4 sm:px-6 rounded-lg hover:bg-green-600 transition-colors min-h-[44px]">Win</button>
+                                    <button onClick={() => onSettle(signal.id, Outcome.LOSS)} className="flex-1 md:flex-none bg-red-500 text-white font-bold py-2 px-4 sm:px-6 rounded-lg hover:bg-red-600 transition-colors min-h-[44px]">Loss</button>
                                 </div>
                             </div>
                         ))}
@@ -522,29 +525,31 @@ const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ sign
 
     return (
         <div>
-            <h1 className="text-4xl font-bold text-white mb-2">Public Ledger</h1>
-            <p className="text-gray-400 mb-6 max-w-3xl">A transparent, immutable record of all signals and their outcomes.</p>
-            <div className="flex space-x-4 mb-4">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">Public Ledger</h1>
+            <p className="text-gray-400 mb-6 max-w-3xl text-sm sm:text-base">A transparent, immutable record of all signals and their outcomes.</p>
+            <div className="flex flex-col sm:flex-row gap-3 sm:space-x-4 mb-4">
                 <div className="relative flex-grow">
                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         placeholder="Search ledger..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-600 rounded-lg p-2 pl-10 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                        className="w-full bg-gray-900 border border-gray-600 rounded-lg p-2.5 pl-10 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition min-h-[44px]"
                     />
                 </div>
-                <select 
-                    value={sortKey} 
+                <select
+                    value={sortKey}
                     onChange={e => setSortKey(e.target.value)}
-                    className="bg-gray-900 border border-gray-600 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                    className="bg-gray-900 border border-gray-600 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition min-h-[44px]"
                 >
                     <option value="timestamp">Sort by Date</option>
                     <option value="outcome">Sort by Outcome</option>
                 </select>
             </div>
-            <div className="bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden">
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead className="bg-gray-900/50">
@@ -562,7 +567,7 @@ const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ sign
                                     const creator = getCreator(signal.creatorId);
                                     return (
                                         <tr key={signal.id} className="hover:bg-gray-700/50">
-                                            <td className="p-4 text-gray-100 font-medium">
+                                            <td className="p-4 text-gray-100 font-medium max-w-xs truncate">
                                                 {signal.content}
                                             </td>
                                             <td className="p-4">
@@ -583,6 +588,34 @@ const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ sign
                     </table>
                 </div>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden">
+                {filteredAndSortedSignals.length > 0 ? (
+                    <div className="divide-y divide-gray-700">
+                        {filteredAndSortedSignals.map(signal => {
+                            const creator = getCreator(signal.creatorId);
+                            return (
+                                <div key={signal.id} className="p-4 space-y-3">
+                                    <div className="flex justify-between items-start gap-2">
+                                        <p className="font-medium text-gray-100 flex-1 break-words">{signal.content}</p>
+                                        <OutcomeBadge outcome={signal.outcome} />
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 text-sm">
+                                        {signal.platform && <PlatformBadge platform={signal.platform} />}
+                                        <span className="text-gray-400">by {creator?.name || 'Unknown'}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500">
+                                        {new Date(signal.timestamp).toLocaleString()}
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="p-6 text-center text-gray-500">No signals found.</div>
+                )}
+            </div>
         </div>
     );
 };
@@ -593,7 +626,8 @@ const BuyerDashboard: React.FC<{
     users: User[];
     purchases: Purchase[];
     onPurchase: (signal: Signal) => void;
-}> = ({ buyer, signals, users, purchases, onPurchase }) => {
+    isSeller?: boolean;
+}> = ({ buyer, signals, users, purchases, onPurchase, isSeller = false }) => {
     const [filter, setFilter] = useState('');
     const [sort, setSort] = useState('timestamp-desc');
 
@@ -651,21 +685,21 @@ const BuyerDashboard: React.FC<{
     }, [signals, users, purchases]);
 
     return (
-        <div className="space-y-12">
+        <div className="space-y-8 sm:space-y-12">
             <div>
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-4xl font-bold text-white">Available Signals</h1>
-                    <div className="bg-indigo-500/20 text-indigo-300 font-bold py-2 px-4 rounded-lg flex items-center">
-                        <TagIcon className="w-5 h-5 mr-2"/>
-                        <span>{buyer.credits} Credit{buyer.credits !== 1 ? 's' : ''} Available</span>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">Available Signals</h1>
+                    <div className="bg-indigo-500/20 text-indigo-300 font-bold py-2 px-4 rounded-lg flex items-center text-sm sm:text-base">
+                        <TagIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2"/>
+                        <span>{buyer.credits} Credit{buyer.credits !== 1 ? 's' : ''}</span>
                     </div>
                 </div>
-                 <div className="flex space-x-4 mb-6">
+                 <div className="flex flex-col sm:flex-row gap-3 sm:space-x-4 mb-6">
                     <div className="relative flex-grow">
                         <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input type="text" placeholder="Filter by content, category, or platform..." value={filter} onChange={e => setFilter(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 pl-10 pr-4 focus:ring-indigo-500"/>
+                        <input type="text" placeholder="Filter signals..." value={filter} onChange={e => setFilter(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2.5 pl-10 pr-4 focus:ring-indigo-500 min-h-[44px]"/>
                     </div>
-                    <select value={sort} onChange={e => setSort(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 focus:ring-indigo-500">
+                    <select value={sort} onChange={e => setSort(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg py-2.5 px-4 focus:ring-indigo-500 min-h-[44px]">
                         <option value="timestamp-desc">Newest</option>
                         <option value="timestamp-asc">Oldest</option>
                         <option value="price-desc">Price: High to Low</option>
@@ -683,6 +717,7 @@ const BuyerDashboard: React.FC<{
                                 isSettled={signal.outcome !== Outcome.PENDING}
                                 onPurchase={onPurchase}
                                 currentUser={buyer}
+                                isSeller={isSeller}
                             />
                         ))}
                     </div>
@@ -726,6 +761,7 @@ const BuyerDashboard: React.FC<{
                                 isSettled={signal.outcome !== Outcome.PENDING}
                                 onPurchase={() => {}} // No action needed
                                 currentUser={buyer}
+                                isSeller={isSeller}
                             />
                         ))}
                     </div>
@@ -788,6 +824,17 @@ export default function App() {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [activeView, setActiveView] = useState<View>('buyer-dashboard');
     const [toast, setToast] = useState({ show: false, message: '' });
+
+    // Mobile sidebar state
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+    // Get Whop context for permissions
+    const { isSeller, isLoading: isWhopLoading } = useWhop();
+
+    // Close mobile sidebar when view changes
+    useEffect(() => {
+        setIsMobileSidebarOpen(false);
+    }, [activeView]);
 
     // Memoize refreshUserData to avoid stale closures
     const refreshUserData = useCallback(async () => {
@@ -934,13 +981,6 @@ export default function App() {
         }
     };
 
-    const handleSwitchRole = async () => {
-        const newUser = await whopService.switchUserRole();
-        await refreshUserData();
-        setActiveView(newUser.role === UserRole.CREATOR ? 'creator-dashboard' : 'buyer-dashboard');
-        showToast(`Switched to ${newUser.role} mode`);
-    };
-
     const handleResetData = async () => {
         if(window.confirm("This will clear all local data for THIS Whop installation and reset the app to a fresh state. Continue?")) {
             // Only clear keys that belong to THIS Whop context (not all localStorage)
@@ -979,30 +1019,77 @@ export default function App() {
         return <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">Loading User via Whop...</div>
     }
 
-    const navItemsMap: { [key in UserRole]: { view: View; label: string; icon: React.ReactNode }[] } = {
-        [UserRole.CREATOR]: [
-            { view: 'creator-dashboard', label: 'Dashboard', icon: <ChartBarIcon className="w-6 h-6" /> },
-            { view: 'post-signal', label: 'Post Signal', icon: <PlusCircleIcon className="w-6 h-6" /> },
-            { view: 'public-ledger', label: 'Public Ledger', icon: <BookOpenIcon className="w-6 h-6" /> },
-        ],
-        [UserRole.BUYER]: [
-            { view: 'buyer-dashboard', label: 'Signals', icon: <TagIcon className="w-6 h-6" /> },
-            { view: 'public-ledger', label: 'Public Ledger', icon: <BookOpenIcon className="w-6 h-6" /> },
-        ],
-    };
-
-    const currentNavItems = navItemsMap[currentUser.role];
+    // Navigation items based on Whop permissions (isSeller from Whop context)
+    // Sellers see creator views, buyers see buyer views
+    const currentNavItems = isSeller
+        ? [
+            { view: 'creator-dashboard' as View, label: 'Dashboard', icon: <ChartBarIcon className="w-6 h-6" /> },
+            { view: 'post-signal' as View, label: 'Post Signal', icon: <PlusCircleIcon className="w-6 h-6" /> },
+            { view: 'public-ledger' as View, label: 'Public Ledger', icon: <BookOpenIcon className="w-6 h-6" /> },
+        ]
+        : [
+            { view: 'buyer-dashboard' as View, label: 'Signals', icon: <TagIcon className="w-6 h-6" /> },
+            { view: 'public-ledger' as View, label: 'Public Ledger', icon: <BookOpenIcon className="w-6 h-6" /> },
+        ];
 
     return (
-        <div className="min-h-screen flex">
+        <div className="min-h-screen flex flex-col lg:flex-row bg-gray-900">
             <Toast message={toast.message} show={toast.show} onClose={hideToast}/>
-            {/* Sidebar */}
-            <aside className="w-72 bg-gray-900 border-r border-gray-800 p-6 flex-shrink-0 flex flex-col justify-between">
+
+            {/* Mobile Header - visible only on mobile/tablet */}
+            <header className="lg:hidden bg-gray-900 border-b border-gray-800 p-4 flex items-center justify-between sticky top-0 z-40">
+                <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">S</div>
+                    <h1 className="text-xl font-bold text-white">Signals</h1>
+                </div>
+                <button
+                    onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+                    className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                    aria-label="Toggle menu"
+                >
+                    {isMobileSidebarOpen ? (
+                        <XMarkIcon className="w-6 h-6" />
+                    ) : (
+                        <Bars3Icon className="w-6 h-6" />
+                    )}
+                </button>
+            </header>
+
+            {/* Mobile Sidebar Overlay */}
+            {isMobileSidebarOpen && (
+                <div
+                    className="lg:hidden fixed inset-0 bg-black/50 z-40"
+                    onClick={() => setIsMobileSidebarOpen(false)}
+                />
+            )}
+
+            {/* Sidebar - hidden on mobile by default, slide-in drawer when open */}
+            <aside className={`
+                fixed lg:static inset-y-0 left-0 z-50
+                w-72 bg-gray-900 border-r border-gray-800 p-6
+                flex flex-col justify-between
+                transform transition-transform duration-300 ease-in-out
+                ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                lg:flex-shrink-0 overflow-y-auto
+            `}>
                 <div>
-                    <div className="flex items-center space-x-3 mb-10">
+                    {/* Logo - hidden on mobile since we have header */}
+                    <div className="hidden lg:flex items-center space-x-3 mb-10">
                         <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">S</div>
                         <h1 className="text-2xl font-bold text-white">Signals</h1>
                     </div>
+
+                    {/* Mobile close button inside sidebar */}
+                    <div className="lg:hidden flex justify-between items-center mb-6">
+                        <span className="text-gray-400 text-sm">Menu</span>
+                        <button
+                            onClick={() => setIsMobileSidebarOpen(false)}
+                            className="p-2 text-gray-400 hover:text-white"
+                        >
+                            <XMarkIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+
                     <nav className="space-y-2">
                          {currentNavItems.map(item => (
                             <NavItem
@@ -1010,52 +1097,91 @@ export default function App() {
                                 icon={item.icon}
                                 label={item.label}
                                 active={activeView === item.view}
-                                onClick={() => setActiveView(item.view)}
+                                onClick={() => {
+                                    setActiveView(item.view);
+                                    setIsMobileSidebarOpen(false);
+                                }}
                             />
                         ))}
                     </nav>
                 </div>
-                <div className="border-t border-gray-700 pt-6">
+                <div className="border-t border-gray-700 pt-6 mt-6">
                     <p className="text-sm text-gray-400 mb-3">Logged in via Whop</p>
-                    <div className={`w-full flex items-center p-2 rounded-lg text-left bg-gray-800 mb-4`}>
-                        <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-10 h-10 rounded-full" />
-                        <div className="ml-3">
-                            <p className="font-semibold text-white text-sm">{currentUser.name}</p>
-                            <p className="text-xs text-gray-400">{currentUser.role}</p>
+                    <div className="w-full flex items-center p-2 rounded-lg text-left bg-gray-800 mb-4">
+                        <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-10 h-10 rounded-full flex-shrink-0" />
+                        <div className="ml-3 min-w-0 flex-1">
+                            <p className="font-semibold text-white text-sm truncate">{currentUser.name}</p>
+                            <p className="text-xs text-gray-400">{isSeller ? 'Creator' : 'Member'}</p>
                         </div>
                     </div>
-                    <div className="flex space-x-2">
-                         <button 
-                            onClick={handleSwitchRole}
-                            className="flex-1 text-xs text-indigo-400 hover:text-indigo-300 underline"
-                        >
-                            Switch Role
-                        </button>
-                        <button 
-                            onClick={handleResetData}
-                            className="flex-1 text-xs text-red-400 hover:text-red-300 underline"
-                        >
-                            Reset Data
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleResetData}
+                        className="w-full text-xs text-red-400 hover:text-red-300 underline text-center py-2"
+                    >
+                        Reset Data
+                    </button>
                 </div>
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 p-6 md:p-12 overflow-y-auto">
-                 {activeView === 'creator-dashboard' && currentUser.role === UserRole.CREATOR && (
+            <main className="flex-1 p-4 sm:p-6 lg:p-12 overflow-x-hidden overflow-y-auto min-w-0">
+                 {/* Creator views - only visible to sellers (Whop-verified) */}
+                 {activeView === 'creator-dashboard' && isSeller && (
                     <CreatorDashboard creator={currentUser} signals={signals} purchases={purchases} onSettle={handleSettleSignal} onNotify={handleNotify}/>
                  )}
-                 {activeView === 'post-signal' && currentUser.role === UserRole.CREATOR && (
+                 {activeView === 'post-signal' && isSeller && (
                     <PostSignalView creator={currentUser} onPostSignal={handlePostSignal} />
                  )}
+
+                 {/* Public view - visible to everyone */}
                  {activeView === 'public-ledger' && (
                     <PublicLedgerView signals={signals} users={users} />
                  )}
-                 {activeView === 'buyer-dashboard' && currentUser.role === UserRole.BUYER && (
-                    <BuyerDashboard buyer={currentUser} signals={signals} users={users} purchases={purchases} onPurchase={handlePurchaseSignal} />
+
+                 {/* Buyer view - only visible to non-sellers */}
+                 {activeView === 'buyer-dashboard' && !isSeller && (
+                    <BuyerDashboard buyer={currentUser} signals={signals} users={users} purchases={purchases} onPurchase={handlePurchaseSignal} isSeller={isSeller} />
+                 )}
+
+                 {/* Access denied fallback - if someone tries to access wrong view */}
+                 {((activeView === 'creator-dashboard' || activeView === 'post-signal') && !isSeller) && (
+                    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+                        <LockClosedIcon className="w-16 h-16 text-gray-600 mb-4" />
+                        <h2 className="text-2xl font-bold text-white mb-2">Access Restricted</h2>
+                        <p className="text-gray-400 mb-6">This area is only accessible to creators.</p>
+                        <button
+                            onClick={() => setActiveView('buyer-dashboard')}
+                            className="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-500 transition-colors"
+                        >
+                            Go to Signals
+                        </button>
+                    </div>
+                 )}
+                 {activeView === 'buyer-dashboard' && isSeller && (
+                    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+                        <ChartBarIcon className="w-16 h-16 text-gray-600 mb-4" />
+                        <h2 className="text-2xl font-bold text-white mb-2">Creator View</h2>
+                        <p className="text-gray-400 mb-6">As a creator, use your dashboard to manage signals.</p>
+                        <button
+                            onClick={() => setActiveView('creator-dashboard')}
+                            className="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-500 transition-colors"
+                        >
+                            Go to Dashboard
+                        </button>
+                    </div>
                  )}
             </main>
         </div>
     );
 }
+
+// Wrap the app with WhopProvider for context
+function AppWithProvider() {
+    return (
+        <WhopProvider>
+            <App />
+        </WhopProvider>
+    );
+}
+
+export default AppWithProvider;
