@@ -779,7 +779,7 @@ const BuyerDashboard: React.FC<{
 // --- MAIN APP COMPONENT ---
 type View = 'creator-dashboard' | 'post-signal' | 'public-ledger' | 'buyer-dashboard';
 
-export default function App() {
+function App() {
     // --- PERSISTENT STATE ---
     // Using localStorage to maintain state across reloads, simulating a backend database
     // IMPORTANT: Storage keys are NAMESPACED by Whop context (experienceId/companyId) 
