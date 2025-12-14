@@ -9,12 +9,29 @@ const simpleHash = (str: string): string => {
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash |= 0; 
+    hash |= 0;
   }
   return Math.abs(hash).toString(16).padStart(8, '0');
 };
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+
+// Sanitize URLs to prevent XSS via javascript: or data: URLs
+const sanitizeUrl = (url: string | undefined): string | undefined => {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    // Only allow http and https protocols
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return url;
+    }
+    console.warn('Blocked potentially malicious URL:', url);
+    return undefined;
+  } catch {
+    // Invalid URL format
+    return undefined;
+  }
+};
 
 // --- HELPER COMPONENTS ---
 
@@ -146,10 +163,10 @@ const SignalCard: React.FC<{
                 {canView ? (
                     <div className="space-y-3">
                          <p className="text-lg text-gray-100">{signal.content}</p>
-                         {signal.marketUrl && (
-                             <a 
-                                href={signal.marketUrl} 
-                                target="_blank" 
+                         {sanitizeUrl(signal.marketUrl) && (
+                             <a
+                                href={sanitizeUrl(signal.marketUrl)}
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
                              >
@@ -298,18 +315,32 @@ const PostSignalView: React.FC<{
     
     const [batch, setBatch] = useState<BatchSignal[]>([]);
 
+    const MAX_PRICE = 10000; // Maximum allowed price in USD
+
     const handleAddToBatch = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validate price
+        const numericPrice = parseFloat(price);
+        if (isNaN(numericPrice) || numericPrice < 0) {
+            alert('Please enter a valid price (0 or greater).');
+            return;
+        }
+        if (numericPrice > MAX_PRICE) {
+            alert(`Price cannot exceed ${formatCurrency(MAX_PRICE)}.`);
+            return;
+        }
+
         if (content && price) {
             const isPred = mode === 'PREDICTION';
-            setBatch(prev => [...prev, { 
-                content, 
-                price, 
+            setBatch(prev => [...prev, {
+                content,
+                price,
                 category: isPred ? 'Prediction' : category,
                 platform: isPred ? platform : undefined,
                 marketUrl: isPred ? marketUrl : undefined
             }]);
-            
+
             // Reset fields
             setContent('');
             setPrice('50');
@@ -317,8 +348,17 @@ const PostSignalView: React.FC<{
             setMarketUrl('');
         }
     };
-    
+
     const handlePostBatch = () => {
+        // Validate all prices in batch before posting
+        for (const signal of batch) {
+            const numericPrice = parseFloat(signal.price);
+            if (isNaN(numericPrice) || numericPrice < 0 || numericPrice > MAX_PRICE) {
+                alert(`Invalid price in batch: ${signal.price}. Please remove and re-add the signal.`);
+                return;
+            }
+        }
+
         batch.forEach(signal => {
             onPostSignal(signal.content, parseFloat(signal.price), signal.category, signal.platform, signal.marketUrl);
         });
@@ -458,12 +498,16 @@ const PostSignalView: React.FC<{
 const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ signals, users }) => {
     const [search, setSearch] = useState('');
     const [sortKey, setSortKey] = useState('timestamp');
-    
-    const getCreator = (creatorId: string) => users.find(u => u.id === creatorId);
+
+    // Memoize getCreator to avoid stale closure issues
+    const getCreator = useCallback(
+        (creatorId: string) => users.find(u => u.id === creatorId),
+        [users]
+    );
 
     const filteredAndSortedSignals = useMemo(() => {
         return signals
-            .filter(s => 
+            .filter(s =>
                 s.content.toLowerCase().includes(search.toLowerCase()) ||
                 getCreator(s.creatorId)?.name.toLowerCase().includes(search.toLowerCase()) ||
                 s.outcome.toLowerCase().includes(search.toLowerCase()) ||
@@ -474,7 +518,7 @@ const PublicLedgerView: React.FC<{ signals: Signal[], users: User[] }> = ({ sign
                 if (sortKey === 'outcome') return a.outcome.localeCompare(b.outcome);
                 return 0;
             });
-    }, [signals, search, sortKey, users]);
+    }, [signals, search, sortKey, getCreator]);
 
     return (
         <div>
@@ -584,22 +628,27 @@ const BuyerDashboard: React.FC<{
     const getCreator = (creatorId: string) => users.find(u => u.id === creatorId);
 
     const creatorStats = useMemo(() => {
-        const creatorIds = [...new Set(signals.map(s => s.creatorId))];
-        return creatorIds.map(id => {
+        const creatorIds = Array.from(new Set(signals.map(s => s.creatorId)));
+        return creatorIds.map((id: string) => {
             const creatorSignals = signals.filter(s => s.creatorId === id);
             const settled = creatorSignals.filter(s => s.outcome !== Outcome.PENDING);
             const wins = settled.filter(s => s.outcome === Outcome.WIN).length;
             const losses = settled.filter(s => s.outcome === Outcome.LOSS).length;
             const winRate = wins + losses > 0 ? wins / (wins + losses) : NaN;
+
+            // Calculate actual credits issued: count purchases on LOSS signals
+            const lossSignalIds = new Set(creatorSignals.filter(s => s.outcome === Outcome.LOSS).map(s => s.id));
+            const creditsIssued = purchases.filter(p => lossSignalIds.has(p.signalId)).length;
+
             return {
                 creator: getCreator(id),
                 wins,
                 losses,
                 winRate,
-                lossProtectionCount: losses, // Each loss triggers a credit
+                lossProtectionCount: creditsIssued, // Actual credits issued (one per buyer per loss)
             };
         });
-    }, [signals, users]);
+    }, [signals, users, purchases]);
 
     return (
         <div className="space-y-12">
@@ -717,12 +766,22 @@ export default function App() {
     });
 
     // Save to localStorage whenever state changes (using namespaced keys)
+    // Wrapped in try-catch to handle quota exceeded errors gracefully
     useEffect(() => {
-        localStorage.setItem(SIGNALS_KEY, JSON.stringify(signals));
+        try {
+            localStorage.setItem(SIGNALS_KEY, JSON.stringify(signals));
+        } catch (error) {
+            console.error('Failed to save signals to localStorage:', error);
+            // Could show a toast here, but avoid infinite loops since showToast updates state
+        }
     }, [signals, SIGNALS_KEY]);
 
     useEffect(() => {
-        localStorage.setItem(PURCHASES_KEY, JSON.stringify(purchases));
+        try {
+            localStorage.setItem(PURCHASES_KEY, JSON.stringify(purchases));
+        } catch (error) {
+            console.error('Failed to save purchases to localStorage:', error);
+        }
     }, [purchases, PURCHASES_KEY]);
 
     const [users, setUsers] = useState<User[]>([]);
@@ -730,15 +789,8 @@ export default function App() {
     const [activeView, setActiveView] = useState<View>('buyer-dashboard');
     const [toast, setToast] = useState({ show: false, message: '' });
 
-    useEffect(() => {
-        const initApp = async () => {
-            await whopService.initialize();
-            refreshUserData();
-        };
-        initApp();
-    }, []);
-
-    const refreshUserData = async () => {
+    // Memoize refreshUserData to avoid stale closures
+    const refreshUserData = useCallback(async () => {
         const user = await whopService.getCurrentUser();
         const allUsers = await whopService.getAllUsers();
         setCurrentUser(user);
@@ -747,11 +799,24 @@ export default function App() {
             // Default view based on role, but prioritize current view if set
             setActiveView(prev => prev || (user.role === UserRole.CREATOR ? 'creator-dashboard' : 'buyer-dashboard'));
         }
-    }
+    }, []);
 
-    const showToast = (message: string) => {
+    useEffect(() => {
+        const initApp = async () => {
+            await whopService.initialize();
+            refreshUserData();
+        };
+        initApp();
+    }, [refreshUserData]);
+
+    const showToast = useCallback((message: string) => {
         setToast({ show: true, message });
-    };
+    }, []);
+
+    // Stable callback for hiding toast (prevents re-renders in Toast component)
+    const hideToast = useCallback(() => {
+        setToast({ show: false, message: '' });
+    }, []);
 
     const handlePostSignal = (content: string, price: number, category: string, platform?: string, marketUrl?: string) => {
         if (!currentUser) return;
@@ -774,6 +839,27 @@ export default function App() {
 
     const handleSettleSignal = async (signalId: string, outcome: Outcome) => {
         try {
+            // Find the signal to validate
+            const signal = signals.find(s => s.id === signalId);
+
+            // Prevent settling non-existent signals
+            if (!signal) {
+                showToast('Signal not found.');
+                return;
+            }
+
+            // Ownership check: only the creator can settle their own signals
+            if (signal.creatorId !== currentUser?.id) {
+                showToast('You can only settle your own signals.');
+                return;
+            }
+
+            // Prevent re-settlement of already settled signals
+            if (signal.outcome !== Outcome.PENDING) {
+                showToast('This signal has already been settled.');
+                return;
+            }
+
             setSignals(prev => prev.map(s => s.id === signalId ? { ...s, outcome } : s));
     
             if (outcome === Outcome.LOSS) {
@@ -797,6 +883,19 @@ export default function App() {
 
     const handlePurchaseSignal = async (signal: Signal) => {
         if (!currentUser) return;
+
+        // Prevent duplicate purchases (race condition protection)
+        const alreadyPurchased = purchases.some(p => p.userId === currentUser.id && p.signalId === signal.id);
+        if (alreadyPurchased) {
+            showToast('You have already purchased this signal.');
+            return;
+        }
+
+        // Prevent purchasing settled signals
+        if (signal.outcome !== Outcome.PENDING) {
+            showToast('This signal has already been settled.');
+            return;
+        }
 
         // Refresh user data to get latest credits
         const freshUser = await whopService.getCurrentUser();
@@ -824,7 +923,7 @@ export default function App() {
 
         if (purchaseSuccessful) {
             const newPurchase: Purchase = {
-                id: `pur-${Date.now()}`,
+                id: `pur-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 userId: freshUser.id,
                 signalId: signal.id,
                 pricePaid,
@@ -896,7 +995,7 @@ export default function App() {
 
     return (
         <div className="min-h-screen flex">
-            <Toast message={toast.message} show={toast.show} onClose={() => setToast({show: false, message: ''})}/>
+            <Toast message={toast.message} show={toast.show} onClose={hideToast}/>
             {/* Sidebar */}
             <aside className="w-72 bg-gray-900 border-r border-gray-800 p-6 flex-shrink-0 flex flex-col justify-between">
                 <div>

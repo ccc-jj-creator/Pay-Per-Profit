@@ -1,10 +1,16 @@
 
 import { User, UserRole, BuyerSegment } from './types';
 
-// --- Whop Credentials (as provided by the user) ---
-const WHOP_API_KEY = 'mn2p2seY4TcU-oKfpAUtG_VI5dlFBFLwsFWErCLPeEA';
-const NEXT_PUBLIC_WHOP_APP_ID = 'app_nrC8u0nhX1OdjK';
-const NEXT_PUBLIC_WHOP_AGENT_USER_ID = 'user_5zfkzDbl0Ahxq';
+// --- Whop Credentials ---
+// SECURITY: API keys should NEVER be in client-side code in production.
+// These should be handled by a backend server that makes authenticated API calls.
+// For now, we only expose the public app ID (which is safe to expose).
+// The actual API key should be stored in environment variables on your server.
+const WHOP_APP_ID = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_WHOP_APP_ID || 'app_nrC8u0nhX1OdjK';
+
+// WARNING: In production, authenticated operations (checkout, notifications, credits)
+// should go through YOUR backend server, not directly from the client.
+// The backend would use: process.env.WHOP_API_KEY (never exposed to browser)
 
 /**
  * Extracts the Whop context ID (experienceId or companyId) from the URL.
@@ -145,7 +151,7 @@ class WhopService {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     
-    console.log('[Whop SDK] Initializing with App ID:', NEXT_PUBLIC_WHOP_APP_ID);
+    console.log('[Whop SDK] Initializing with App ID:', WHOP_APP_ID);
     console.log('[Whop SDK] Context ID:', WHOP_CONTEXT_ID);
     
     // Clean up any stale data from sessions that weren't properly scoped
